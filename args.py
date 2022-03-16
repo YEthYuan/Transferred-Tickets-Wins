@@ -152,6 +152,8 @@ def parse_arguments():
         help="Amount of pruning to do during sparse training",
         type=float,
     )
+    parser.add_argument('--pruning_start', default=0, type=int, help='start pruning state')
+    parser.add_argument('--pruning_times', default=1, type=int, help='overall times of pruning')
     parser.add_argument(
         "--low-data", default=1, help="Amount of data to use", type=float
     )
