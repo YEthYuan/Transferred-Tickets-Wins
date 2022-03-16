@@ -382,8 +382,12 @@ def main_worker(args):
             all_imp_result['val_robust_top1acc'][val_pick_best_robust_epoch], val_pick_best_robust_epoch + 1))
 
         # pruning
+
+        # linear pruning rate schedule  # TODO: Implement the cosine pruning rate schedule
+        cur_prune_rate = args.prune_rate / args.pruning_times
+
         print("L1 Unstructured Pruning Start")
-        pruning_model(model, args.prune_rate)
+        pruning_model(model, cur_prune_rate)
         print("Pruning Done!")
         check_sparsity(model)
         current_mask = extract_mask(model.state_dict())
@@ -396,7 +400,7 @@ def main_worker(args):
                 "arch": args.arch,
                 "state_dict": model.state_dict(),
                 "mask": current_mask,
-                "prune_rate": args.prune_rate,
+                "prune_rate": cur_prune_rate,
                 "best_acc1": best_acc1,
                 "best_acc5": best_acc5,
                 "best_train_acc1": best_train_acc1,

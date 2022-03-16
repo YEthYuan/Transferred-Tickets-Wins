@@ -38,7 +38,7 @@ def parse_arguments():
         default=2,
         type=int,
         metavar="N",
-        help="number of total epochs to run",
+        help="number of epochs to run in each pruning state",
     )
     parser.add_argument(
         "--start-epoch",
@@ -153,7 +153,7 @@ def parse_arguments():
         type=float,
     )
     parser.add_argument('--pruning_start', default=0, type=int, help='start pruning state')
-    parser.add_argument('--pruning_times', default=1, type=int, help='overall times of pruning')
+    parser.add_argument('--pruning_times', default=5, type=int, help='overall times of pruning')
     parser.add_argument(
         "--low-data", default=1, help="Amount of data to use", type=float
     )
@@ -220,7 +220,7 @@ def parse_arguments():
         "--first-layer-type", type=str, default=None, help="Conv type of first layer"
     )
     parser.add_argument(
-        "--trainer", type=str, default="sup_pt", help="cs, ss, or standard training"
+        "--trainer", type=str, default="default", help="cs, ss, or standard training"
     )
     parser.add_argument(
         "--score-init-constant",
