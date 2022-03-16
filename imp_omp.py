@@ -23,6 +23,8 @@ from utils.net_utils import (
     set_model_prune_rate,
     freeze_model_weights,
     freeze_model_subnet,
+    unfreeze_model_subnet,
+    unfreeze_model_weights,
     save_checkpoint,
     get_lr,
     LabelSmoothing,
@@ -190,14 +192,14 @@ def main_worker(args):
     if args.discard_mode and args.progressive_prune:
         set_model_prune_rate(model, prune_rate=0.9)
 
+    check_sparsity(model, use_mask=False)
+
     # ====================== Start IMP Process ==========================
 
     for state in range(args.pruning_start, args.pruning_times):
         print('******************************************')
         print('pruning state', state)
         print('******************************************')
-
-        check_sparsity(model)
 
         # *************** Start of Training all epochs ***************
         for epoch in range(args.start_epoch, args.epochs):
@@ -372,7 +374,7 @@ def main_worker(args):
         # *************** End of Training all epochs ***************
 
         # Report result after training for all epochs
-        check_sparsity(model)
+        check_sparsity(model, use_mask=True)
         val_pick_best_epoch = np.argmax(np.array(all_imp_result['val_top1acc']))
         print(
             '* best Top 1 Natural Accuracy = {}, Epoch = {}'.format(all_imp_result['val_top1acc'][val_pick_best_epoch],
@@ -389,9 +391,9 @@ def main_worker(args):
         print("L1 Unstructured Pruning Start")
         pruning_model(model, cur_prune_rate)
         print("Pruning Done!")
-        check_sparsity(model)
         current_mask = extract_mask(model.state_dict())
-        remove_prune(model)
+        # remove_prune(model)
+        check_sparsity(model, use_mask=True)
 
         # save checkpoint of this pruning state
         save_checkpoint(
@@ -415,6 +417,32 @@ def main_worker(args):
             filename=ckpt_base_dir / f"state_{state}_subnetwork.state",
             save=False,
         )
+
+        # save the final state
+        if state == args.pruning_times - 1:
+
+            # Remove the pruned weights permanently
+            remove_prune(model)
+
+            # Save final model checkpoint
+            save_checkpoint(
+                {
+                    "state": state + 1,
+                    "arch": args.arch,
+                    "state_dict": model.state_dict(),
+                    "best_acc1": best_acc1,
+                    "best_acc5": best_acc5,
+                    "best_train_acc1": best_train_acc1,
+                    "best_train_acc5": best_train_acc5,
+                    'natural_acc1_at_best_robustness': natural_acc1_at_best_robustness,
+                    "all_imp_result": all_imp_result,
+                    "optimizer": optimizer.state_dict(),
+                    "curr_acc1": acc1 if acc1 else "Not evaluated",
+                },
+                False,
+                filename=ckpt_base_dir / f"final.state",
+                save=False,
+            )
 
         # reset the result dict
         all_imp_result = {}
@@ -524,14 +552,15 @@ def pretrained(args, model):
             m.set_subnet()
 
 
-def check_sparsity(model):
+def check_sparsity(model, use_mask=True):
     sum_list = 0
     zero_sum = 0
 
-    for name, m in model.named_modules():
-        if isinstance(m, nn.Conv2d):
-            sum_list = sum_list + float(m.weight.nelement())
-            zero_sum = zero_sum + float(torch.sum(m.weight == 0))
+    for module_name, module in model.named_modules():
+        if isinstance(module, torch.nn.Conv2d):
+            module_sum_list, module_zero_sum = check_module_sparsity(module, use_mask=use_mask)
+            sum_list += module_sum_list
+            zero_sum += module_zero_sum
 
     if zero_sum:
         remain_weight_rate = 100 * (1 - zero_sum / sum_list)
@@ -541,6 +570,25 @@ def check_sparsity(model):
         remain_weight_rate = None
 
     return remain_weight_rate
+
+
+def check_module_sparsity(module, use_mask=True):
+    sum_list = 0
+    zero_sum = 0
+
+    if use_mask:
+        for buffer_name, buffer in module.named_buffers():
+            if "weight_mask" in buffer_name:
+                sum_list += buffer.nelement()
+                zero_sum += torch.sum(buffer == 0).item()
+
+    else:
+        for param_name, param in module.named_parameters():
+            if "weight" in param_name:
+                sum_list += param.nelement()
+                zero_sum += torch.sum(param == 0).item()
+
+    return sum_list, zero_sum
 
 
 def get_dataset(args):
@@ -574,7 +622,13 @@ def get_model(args):
         if args.prune_rate < 0:
             raise ValueError("Need to set a positive prune rate")
 
+        # this prune rate is the prune rate of each layers, don't use in imp/omp experiments
+        # set_model_prune_rate(model, prune_rate=0)
         set_model_prune_rate(model, prune_rate=args.prune_rate)
+
+        freeze_model_subnet(model)
+        unfreeze_model_weights(model)
+
         print(
             f"=> Rough estimate model params {sum(int(p.numel() * (1 - args.prune_rate)) for n, p in model.named_parameters() if not n.endswith('scores'))}"
         )
