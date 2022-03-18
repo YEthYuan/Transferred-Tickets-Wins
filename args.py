@@ -115,7 +115,7 @@ def parse_arguments():
     parser.add_argument(
         "--pretrained",
         dest="pretrained",
-        # default="debug_runs/resnet18-usc-unsigned-cifar/test111/prune_rate=0.2/search/checkpoints/model_best.pth",
+        # default="debug_runs/resnet18-usc-unsigned-cifar/debug_run/prune_rate=0.2/sup_pt/checkpoints/final.state",
         default=None,
         type=str,
         help="use pre-trained model",
@@ -153,7 +153,7 @@ def parse_arguments():
         type=float,
     )
     parser.add_argument('--pruning_start', default=0, type=int, help='start pruning state')
-    parser.add_argument('--pruning_times', default=5, type=int, help='overall times of pruning')
+    parser.add_argument('--pruning_times', default=4, type=int, help='overall times of pruning')
     parser.add_argument(
         "--low-data", default=1, help="Amount of data to use", type=float
     )
@@ -234,11 +234,12 @@ def parse_arguments():
     )
 
     parser.add_argument('--attack_type', default='fgsm', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
-    parser.add_argument('--epsilon', default=8, type=int)
+    parser.add_argument('--epsilon', default=3, type=int)
     parser.add_argument('--alpha', default=10, type=float, help='Step size')
     parser.add_argument('--attack_iters', default=7, type=int, help='Attack iterations')
 
-    parser.add_argument('--task', default='sup_pt', choices=['search', 'ft_inherit', 'ft_reinit', 'ft_full', 'sup_pt'])
+    parser.add_argument('--task', default='sup_pt',
+                        choices=['search', 'ft_inherit', 'ft_reinit', 'ft_full', 'sup_pt', 'ft_mp'])
     parser.add_argument(
         "--ft_init", default="kaiming_normal", help="Weight initialization for finetuning"
     )

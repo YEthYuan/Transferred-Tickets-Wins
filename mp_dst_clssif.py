@@ -21,6 +21,8 @@ from utils.net_utils import (
     set_model_prune_rate,
     freeze_model_weights,
     freeze_model_subnet,
+    unfreeze_model_weights,
+    unfreeze_model_subnet,
     save_checkpoint,
     get_lr,
     LabelSmoothing,
@@ -80,7 +82,8 @@ def main_worker(args):
     # Load the pretrained model checkpoint
     pretrained(args, model)
 
-
+    freeze_model_subnet(model)
+    unfreeze_model_weights(model)
 
     optimizer = get_optimizer(args, model)
     data = get_dataset(args)
@@ -111,23 +114,15 @@ def main_worker(args):
 
     # Data loading code
     if args.evaluate:
-        if args.attack_type != 'None':
-            acc1, acc5 = validate_adv(
-                data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
-            )
+        acc1, acc5 = validate_adv(
+            data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
+        )
 
-            natural_acc1, natural_acc5 = validate(
-                data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
-            )
+        natural_acc1, natural_acc5 = validate(
+            data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
+        )
 
-            log.info('Natural Acc: %.2f, Robust Acc: %.2f', natural_acc1, acc1)
-
-        else:
-            acc1, acc5 = validate(
-                data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
-            )
-
-            log.info('Natural Acc: %.2f', acc1)
+        log.info('Natural Acc: %.2f, Robust Acc: %.2f', natural_acc1, acc1)
 
         return
 
@@ -218,11 +213,8 @@ def main_worker(args):
             # evaluate on validation set
             start_validation = time.time()
 
-            if args.attack_type != 'None':
-                acc1, acc5 = validate_adv(data.val_loader, model, criterion, args, writer, epoch)
-                natural_acc1, natural_acc5 = validate(data.val_loader, model, criterion, args, writer, epoch)
-            else:
-                acc1, acc5 = validate(data.val_loader, model, criterion, args, writer, epoch)
+            acc1, acc5 = validate_adv(data.val_loader, model, criterion, args, writer, epoch)
+            natural_acc1, natural_acc5 = validate(data.val_loader, model, criterion, args, writer, epoch)
 
             validation_time.update((time.time() - start_validation) / 60)
 
@@ -233,10 +225,8 @@ def main_worker(args):
             best_train_acc1 = max(train_acc1, best_train_acc1)
             best_train_acc5 = max(train_acc5, best_train_acc5)
 
-            if is_best and args.attack_type != 'None':
-                natural_acc1_at_best_robustness = natural_acc1
-
             if is_best:
+                natural_acc1_at_best_robustness = natural_acc1
                 log.info(f"==> New best, saving at {ckpt_base_dir / 'model_best.pth'}")
 
             if is_best or epoch == args.epochs - 1:
@@ -279,12 +269,10 @@ def main_worker(args):
                     save=True,
                 )
 
-            if args.attack_type != 'None':
-                log.info(
-                    'Epoch[%d][%d] curr natural acc: %.2f, natural acc at best robustness: %.2f \n curr robust acc: %.2f, best robust acc: %.2f',
+            log.info(
+                    'Epoch[%d][%d] curr natural acc: %.2f, natural acc at best robustness: %.2f \n curr robust acc: '
+                    '%.2f, best robust acc: %.2f',
                     args.epochs, epoch, natural_acc1, natural_acc1_at_best_robustness, acc1, best_acc1)
-            else:
-                log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
 
         elif 'ImageNet' in args.set:
             save_checkpoint(
@@ -368,7 +356,7 @@ def get_trainer(args):
     trainer = importlib.import_module(f"trainers.{args.trainer}")
 
     if args.attack_type == 'None':
-        return trainer.train, trainer.validate, None, trainer.modifier
+        return trainer.train, trainer.validate, trainer.validate_adv, trainer.modifier
     else:
         if args.attack_type == 'free':
             return trainer.train_adv_free, trainer.validate, trainer.validate_adv, trainer.modifier
@@ -435,9 +423,9 @@ def pretrained(args, model):
         print("=> no pretrained weights found at '{}'".format(args.pretrained))
         exit()
 
-    for n, m in model.named_modules():
-        if isinstance(m, FixedSubnetConv):
-            m.set_subnet()
+    # for n, m in model.named_modules():
+    #     if isinstance(m, FixedSubnetConv):
+    #         m.set_subnet()
 
 
 def check_sparsity(model):

@@ -3,6 +3,7 @@ import pathlib
 import random
 import time
 import shutil
+import copy
 import math
 import numpy as np
 from matplotlib import pyplot as plt
@@ -373,6 +374,10 @@ def main_worker(args):
             end_epoch = time.time()
         # *************** End of Training all epochs ***************
 
+        # Load the best model
+        model_best = torch.load(ckpt_base_dir / "model_best.pth")["state_dict"]
+        model.load_state_dict(model_best)
+
         # Report result after training for all epochs
         check_sparsity(model, use_mask=True)
         val_pick_best_epoch = np.argmax(np.array(all_imp_result['val_top1acc']))
@@ -394,6 +399,7 @@ def main_worker(args):
         current_mask = extract_mask(model.state_dict())
         # remove_prune(model)
         check_sparsity(model, use_mask=True)
+
 
         # save checkpoint of this pruning state
         save_checkpoint(
