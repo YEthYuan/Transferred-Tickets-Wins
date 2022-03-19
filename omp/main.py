@@ -8,6 +8,7 @@ from cox import utils
 from robustness import datasets, defaults, model_utils, train
 from robustness.tools import helpers
 from torch import nn
+from torch.nn.utils import prune
 from torchvision import models
 
 from utils import constants as cs
@@ -26,7 +27,16 @@ parser.add_argument('--dataset', type=str, default='cifar10',
 parser.add_argument('--data', type=str, default='../../data')
 parser.add_argument('--out-dir', type=str, default='runs')
 parser.add_argument('--exp-name', type=str, default='cifar10-transfer-demo')
+parser.add_argument('--arch', type=str, default='resnet50')
 parser.add_argument('--model-path', type=str, default='pretrained_models/resnet50_l2_eps3.ckpt')
+parser.add_argument('--epochs', type=int, default=160)
+parser.add_argument('--lr', type=float, default=0.01)
+parser.add_argument('--step-lr', type=int, default=30)
+parser.add_argument('--batch-size', type=int, default=64)
+parser.add_argument('--weight-decay', type=float, default=5e-4)
+parser.add_argument('--prune_rate', type=float, default=0.4)
+parser.add_argument('--adv-train', type=int, default=0)
+parser.add_argument('--workers', type=int, default=0)
 parser.add_argument('--resume', action='store_true',
                     help='Whether to resume or not (Overrides the one in robustness.defaults)')
 parser.add_argument('--pytorch-pretrained', action='store_true',
@@ -69,7 +79,17 @@ def main(args, store):
     if args.eval_only:
         return train.eval_model(args, model, validation_loader, store=store)
 
-    update_params = freeze_model(model, freeze_level=args.freeze_level)
+    check_sparsity(model, use_mask=False)
+    cur_prune_rate = args.prune_rate
+    print("L1 Unstructured Pruning Start")
+    pruning_model(model, cur_prune_rate)
+    print("Pruning Done!")
+    # remove_prune(model)
+    check_sparsity(model, use_mask=False)
+    remove_prune(model)
+
+    # update_params = freeze_model(model, freeze_level=args.freeze_level)
+    update_params = None
 
     print(f"Dataset: {args.dataset} | Model: {args.arch}")
     train.train_model(args, model, (train_loader, validation_loader), store=store,
@@ -124,14 +144,14 @@ def get_dataset_and_loaders(args):
     if args.dataset in ['imagenet', 'stylized_imagenet']:
         ds = datasets.ImageNet(args.data)
         train_loader, validation_loader = ds.make_loaders(
-            only_val=args.eval_only, batch_size=args.batch_size, workers=8)
+            only_val=args.eval_only, batch_size=args.batch_size, workers=0)
     elif args.cifar10_cifar10:
         ds = datasets.CIFAR('/tmp')
         train_loader, validation_loader = ds.make_loaders(
-            only_val=args.eval_only, batch_size=args.batch_size, workers=8)
+            only_val=args.eval_only, batch_size=args.batch_size, workers=0)
     else:
         ds, (train_loader, validation_loader) = transfer_datasets.make_loaders(
-            args.dataset, args.batch_size, 8, args.subset)
+            ds=args.dataset, batch_size=args.batch_size, workers=0, subset=args.subset)
         if type(ds) == int:
             new_ds = datasets.CIFAR("/tmp")
             new_ds.num_classes = ds
@@ -262,6 +282,68 @@ def args_preprocess(args):
     args = defaults.check_and_fill_args(args, defaults.MODEL_LOADER_ARGS, None)
 
     return args
+
+
+def check_sparsity(model, use_mask=True):
+    sum_list = 0
+    zero_sum = 0
+
+    for module_name, module in model.named_modules():
+        if isinstance(module, ch.nn.Conv2d):
+            module_sum_list, module_zero_sum = check_module_sparsity(module, use_mask=use_mask)
+            sum_list += module_sum_list
+            zero_sum += module_zero_sum
+
+    if zero_sum:
+        remain_weight_rate = 100 * (1 - zero_sum / sum_list)
+        print('* remain weight ratio = ', 100 * (1 - zero_sum / sum_list), '%')
+    else:
+        print('no weight for calculating sparsity')
+        remain_weight_rate = None
+
+    return remain_weight_rate
+
+
+def check_module_sparsity(module, use_mask=True):
+    sum_list = 0
+    zero_sum = 0
+
+    if use_mask:
+        for buffer_name, buffer in module.named_buffers():
+            if "weight_mask" in buffer_name:
+                sum_list += buffer.nelement()
+                zero_sum += ch.sum(buffer == 0).item()
+
+    else:
+        for param_name, param in module.named_parameters():
+            if "weight" in param_name:
+                sum_list += param.nelement()
+                zero_sum += ch.sum(param == 0).item()
+
+    return sum_list, zero_sum
+
+
+def pruning_model(model, px):
+
+    print('Apply Unstructured L1 Pruning Globally (all conv layers)')
+    parameters_to_prune =[]
+    for name,m in model.named_modules():
+        if isinstance(m, nn.Conv2d):
+            parameters_to_prune.append((m,'weight'))
+
+    parameters_to_prune = tuple(parameters_to_prune)
+    prune.global_unstructured(
+        parameters_to_prune,
+        pruning_method=prune.L1Unstructured,
+        amount=px,
+    )
+
+
+def remove_prune(model):
+    print('Remove hooks for multiplying masks (all conv layers)')
+    for name, m in model.named_modules():
+        if isinstance(m, nn.Conv2d):
+            prune.remove(m, 'weight')
 
 
 if __name__ == "__main__":
