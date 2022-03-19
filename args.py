@@ -17,10 +17,10 @@ def parse_arguments():
     parser.add_argument("--optimizer", help="Which optimizer to use", default="sgd")
     parser.add_argument("--set", help="name of dataset", type=str, default="CIFAR10")
     parser.add_argument(
-        "-a", "--arch", metavar="ARCH", default="cResNet18", help="model architecture"
+        "-a", "--arch", metavar="ARCH", default="ResNet50", help="model architecture"
     )
     parser.add_argument(
-        "--config", help="Config file to use (see configs dir)", default="config_rst/resnet18-usc-unsigned-cifar.yaml"
+        "--config", help="Config file to use (see configs dir)", default="config_rst/resnet50-usc-unsigned-imagenet.yaml"
     )
     parser.add_argument(
         "--log-dir", help="Where to save the runs. If None use ./runs", default="./debug_runs"
@@ -109,14 +109,15 @@ def parse_arguments():
         "--evaluate",
         dest="evaluate",
         action="store_true",
-        default=False,
+        default=True,
+        # default=False,
         help="evaluate model on validation set",
     )
     parser.add_argument(
         "--pretrained",
         dest="pretrained",
-        # default="debug_runs/resnet18-usc-unsigned-cifar/debug_run/prune_rate=0.2/sup_pt/checkpoints/final.state",
-        default=None,
+        default="pretrained_models/resnet50_l2_eps3.ckpt",
+        # default=None,
         type=str,
         help="use pre-trained model",
     )
@@ -148,12 +149,12 @@ def parse_arguments():
     )
     parser.add_argument(
         "--prune-rate",
-        default=0.2,
+        default=0.4,
         help="Amount of pruning to do during sparse training",
         type=float,
     )
     parser.add_argument('--pruning_start', default=0, type=int, help='start pruning state')
-    parser.add_argument('--pruning_times', default=4, type=int, help='overall times of pruning')
+    parser.add_argument('--pruning_times', default=1, type=int, help='overall times of pruning')
     parser.add_argument(
         "--low-data", default=1, help="Amount of data to use", type=float
     )
@@ -238,8 +239,8 @@ def parse_arguments():
     parser.add_argument('--alpha', default=10, type=float, help='Step size')
     parser.add_argument('--attack_iters', default=7, type=int, help='Attack iterations')
 
-    parser.add_argument('--task', default='sup_pt',
-                        choices=['search', 'ft_inherit', 'ft_reinit', 'ft_full', 'sup_pt', 'ft_mp'])
+    parser.add_argument('--task', default='prn',
+                        choices=['search', 'ft_inherit', 'ft_reinit', 'ft_full', 'sup_pt', 'ft_mp', 'prn'])
     parser.add_argument(
         "--ft_init", default="kaiming_normal", help="Weight initialization for finetuning"
     )

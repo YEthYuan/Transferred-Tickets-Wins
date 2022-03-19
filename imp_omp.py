@@ -138,6 +138,10 @@ def main_worker(args):
 
     # Data loading code
     if args.evaluate:
+        acc1 = -1.0
+        acc5 = -1.0
+        natural_acc1 = -1.0
+        natural_acc5 = -1.0
         if args.attack_type != 'None':
             acc1, acc5 = validate_adv(
                 data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
@@ -155,6 +159,71 @@ def main_worker(args):
             )
 
             log.info('Natural Acc: %.2f', acc1)
+
+        if args.pruning_times == 1 and args.task == 'prn':
+
+            check_sparsity(model, use_mask=True)
+            # pruning
+
+            cur_prune_rate = args.prune_rate
+            print("L1 Unstructured Pruning Start")
+            pruning_model(model, cur_prune_rate)
+            print("Pruning Done!")
+            current_mask = extract_mask(model.state_dict())
+            # remove_prune(model)
+            check_sparsity(model, use_mask=True)
+
+            # save checkpoint of this pruning state
+            save_checkpoint(
+                {
+                    "arch": args.arch,
+                    "state_dict": model.state_dict(),
+                    "mask": current_mask,
+                    "prune_rate": cur_prune_rate,
+                    "natural_acc1": natural_acc1,
+                    "natural_acc5": natural_acc5,
+                    "robust_acc1": acc1,
+                    "robust_acc5": acc5,
+                },
+                is_best=False,
+                filename=ckpt_base_dir / f"one-shot-pruning.state",
+                save=False,
+            )
+
+            remove_prune(model)
+
+            if args.attack_type != 'None':
+                acc1, acc5 = validate_adv(
+                    data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
+                )
+
+                natural_acc1, natural_acc5 = validate(
+                    data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
+                )
+
+                log.info('Natural Acc: %.2f, Robust Acc: %.2f', natural_acc1, acc1)
+
+            else:
+                acc1, acc5 = validate(
+                    data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
+                )
+
+                log.info('Natural Acc: %.2f', acc1)
+
+            # Save final model checkpoint
+            save_checkpoint(
+                {
+                    "arch": args.arch,
+                    "state_dict": model.state_dict(),
+                    "natural_acc1": natural_acc1,
+                    "natural_acc5": natural_acc5,
+                    "robust_acc1": acc1,
+                    "robust_acc5": acc5,
+                },
+                False,
+                filename=ckpt_base_dir / f"pruning-{args.prune_rate}-result.state",
+                save=False,
+            )
 
         return
 
@@ -531,7 +600,10 @@ def resume(args, model, optimizer):
 def pretrained(args, model):
     if os.path.isfile(args.pretrained):
         print("=> loading pretrained weights from '{}'".format(args.pretrained))
-        pretrained = torch.load(args.pretrained)["state_dict"]
+        if '.ckpt' in args.pretrained:
+            pretrained = torch.load(args.pretrained)["model"]
+        else:
+            pretrained = torch.load(args.pretrained)["state_dict"]
 
         if args.not_strict:
             model_state_dict = model.state_dict()
