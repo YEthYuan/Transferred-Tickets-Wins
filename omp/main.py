@@ -5,7 +5,7 @@ import cox.store
 import numpy as np
 import torch as ch
 from cox import utils
-from robustness import datasets, defaults, model_utils, train
+from robustness import datasets, defaults, model_utils, train, attacker
 from robustness.tools import helpers
 from torch import nn
 from torch.nn.utils import prune
@@ -20,6 +20,12 @@ parser = defaults.add_args_to_parser(defaults.CONFIG_ARGS, parser)
 parser = defaults.add_args_to_parser(defaults.MODEL_LOADER_ARGS, parser)
 parser = defaults.add_args_to_parser(defaults.TRAINING_ARGS, parser)
 parser = defaults.add_args_to_parser(defaults.PGD_ARGS, parser)
+
+# Adversarial arguments
+parser.add_argument('--attack-steps', type=int, help='number of steps for PGD attack', default=7)
+parser.add_argument('--constraint', type=str, help='adv constraint', default='2')
+parser.add_argument('--eps', type=str, help='adversarial perturbation budget', default='3')
+parser.add_argument('--attack-lr', type=str, help='step size for PGD', default='10')
 
 # Custom arguments
 parser.add_argument('--dataset', type=str, default='cifar10',
@@ -36,6 +42,7 @@ parser.add_argument('--batch-size', type=int, default=64)
 parser.add_argument('--weight-decay', type=float, default=5e-4)
 parser.add_argument('--prune_rate', type=float, default=0.4)
 parser.add_argument('--adv-train', type=int, default=0)
+parser.add_argument('--adv-eval', type=int, default=1)
 parser.add_argument('--workers', type=int, default=0)
 parser.add_argument('--resume', action='store_true',
                     help='Whether to resume or not (Overrides the one in robustness.defaults)')
