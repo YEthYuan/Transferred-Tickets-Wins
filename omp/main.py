@@ -32,7 +32,7 @@ parser.add_argument('--dataset', type=str, default='cifar10',
                     help='Dataset (Overrides the one in robustness.defaults)')
 parser.add_argument('--data', type=str, default='../../data')
 parser.add_argument('--out-dir', type=str, default='runs')
-parser.add_argument('--exp-name', type=str, default='cifar10-transfer-demo')
+parser.add_argument('--exp-name', type=str, default='cifar10-transfer-prune')
 parser.add_argument('--arch', type=str, default='resnet50')
 parser.add_argument('--model-path', type=str, default='pretrained_models/resnet50_l2_eps3.ckpt')
 parser.add_argument('--epochs', type=int, default=160)
