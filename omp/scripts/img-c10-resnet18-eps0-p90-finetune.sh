@@ -12,5 +12,5 @@ python main.py \
   --adv-train 0 \
   --adv-eval 1 \
   --workers 0 \
-  --model-path pretrained_models/resnet18_eps0.ckpt \
+  --pytorch-pretrained \
   --freeze-level -1
