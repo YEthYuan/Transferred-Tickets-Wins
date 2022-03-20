@@ -36,18 +36,18 @@ parser.add_argument('--exp-name', type=str, default='test-debug-run')
 parser.add_argument('--arch', type=str, default='resnet18')
 # parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_eps0.ckpt')
 parser.add_argument('--model-path', type=str, default=None)
-parser.add_argument('--epochs', type=int, default=3)
+parser.add_argument('--epochs', type=int, default=1)
 parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--step-lr', type=int, default=30)
 parser.add_argument('--batch-size', type=int, default=64)
 parser.add_argument('--weight-decay', type=float, default=5e-4)
 parser.add_argument('--prune_rate', type=float, default=0.9)
 parser.add_argument('--adv-train', type=int, default=0)
-parser.add_argument('--adv-eval', type=int, default=1)
+parser.add_argument('--adv-eval', type=int, default=0)
 parser.add_argument('--workers', type=int, default=0)
 parser.add_argument('--resume', action='store_true',
                     help='Whether to resume or not (Overrides the one in robustness.defaults)')
-parser.add_argument('--pytorch-pretrained', action='store_true',
+parser.add_argument('--pytorch-pretrained', action='store_true', default=True,
                     help='If True, loads a Pytorch pretrained model.')
 parser.add_argument('--cifar10-cifar10', action='store_true',
                     help='cifar10 to cifar10 transfer')
