@@ -3,7 +3,7 @@ python main.py \
   --eps 3 \
   --prune_rate 0.4 \
   --dataset cifar10 \
-  --exp-name img-c10-resnet18-eps0-p90-finetune \
+  --exp-name img-c10-resnet18-eps0-p40-finetune \
   --epochs 150 \
   --lr 0.01 \
   --step-lr 30 \
