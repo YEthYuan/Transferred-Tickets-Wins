@@ -1,13 +1,14 @@
 import torch as ch
 import numpy as np
 import torch.nn as nn
+from torch.nn.utils import prune
 from torch.optim import SGD, lr_scheduler
 from torchvision.utils import make_grid
 from cox.utils import Parameters
 
-from .tools import helpers
-from .tools.helpers import AverageMeter, ckpt_at_epoch, has_attr
-from .tools import constants as consts
+from robustness.tools import helpers
+from robustness.tools.helpers import AverageMeter, ckpt_at_epoch, has_attr
+from robustness.tools import constants as consts
 import dill 
 import os
 import time
@@ -128,7 +129,7 @@ def make_optimizer_and_schedule(args, model, checkpoint, params):
 
     return optimizer, schedule
 
-def eval_model(args, model, loader, store):
+def eval_model(args, model, mask, loader, store):
     """
     Evaluate a model for standard (and optionally adversarial) accuracy.
 
@@ -136,6 +137,7 @@ def eval_model(args, model, loader, store):
         args (object) : A list of arguments---should be a python object 
             implementing ``getattr()`` and ``setattr()``.
         model (AttackerModel) : model to evaluate
+        mask
         loader (iterable) : a dataloader serving `(input, label)` batches from
             the validation set
         store (cox.Store) : store for saving results in (via tensorboardX)
@@ -151,14 +153,14 @@ def eval_model(args, model, loader, store):
     model = ch.nn.DataParallel(model)
 
     prec1, nat_loss = _model_loop(args, 'val', loader, 
-                                        model, None, 0, False, writer)
+                                        model, mask, None, 0, False, writer)
 
     adv_prec1, adv_loss = float('nan'), float('nan')
     if args.adv_eval: 
         args.eps = eval(str(args.eps)) if has_attr(args, 'eps') else None
         args.attack_lr = eval(str(args.attack_lr)) if has_attr(args, 'attack_lr') else None
         adv_prec1, adv_loss = _model_loop(args, 'val', loader, 
-                                        model, None, 0, True, writer)
+                                        model, mask, None, 0, True, writer)
     log_info = {
         'epoch':0,
         'nat_prec1':prec1,
@@ -174,7 +176,7 @@ def eval_model(args, model, loader, store):
     if store: store[consts.LOGS_TABLE].append_row(log_info)
     return log_info
 
-def train_model(args, model, loaders, *, checkpoint=None, dp_device_ids=None,
+def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=None,
             store=None, update_params=None, disable_no_grad=False):
     """
     Main function for training a model. 
@@ -301,7 +303,7 @@ def train_model(args, model, loaders, *, checkpoint=None, dp_device_ids=None,
     if checkpoint:
         start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint[prec1_key] if prec1_key in checkpoint \
-            else _model_loop(args, 'val', val_loader, model, None, start_epoch-1, args.adv_train, writer=None)[0]
+            else _model_loop(args, 'val', val_loader, model, mask, None, start_epoch-1, args.adv_train, writer=None)[0]
 
     # Timestamp for training start time
     start_time = time.time()
@@ -309,7 +311,12 @@ def train_model(args, model, loaders, *, checkpoint=None, dp_device_ids=None,
     for epoch in range(start_epoch, args.epochs):
         # train for one epoch
         train_prec1, train_loss = _model_loop(args, 'train', train_loader, 
-                model, opt, epoch, args.adv_train, writer)
+                model, mask, opt, epoch, args.adv_train, writer)
+
+        prune_model_custom(model, mask, show=False)
+        remove_prune(model, show=False)
+        check_sparsity(model, use_mask=False)
+
         last_epoch = (epoch == (args.epochs - 1))
 
         # evaluate on validation set
@@ -335,13 +342,13 @@ def train_model(args, model, loaders, *, checkpoint=None, dp_device_ids=None,
             # log + get best
             ctx = ch.enable_grad() if disable_no_grad else ch.no_grad() 
             with ctx:
-                prec1, nat_loss = _model_loop(args, 'val', val_loader, model, 
+                prec1, nat_loss = _model_loop(args, 'val', val_loader, model, mask,
                         None, epoch, False, writer)
 
             # loader, model, epoch, input_adv_exs
             should_adv_eval = args.adv_eval or args.adv_train
             adv_val = should_adv_eval and _model_loop(args, 'val', val_loader,
-                    model, None, epoch, True, writer)
+                    model, mask, None, epoch, True, writer)
             adv_prec1, adv_loss = adv_val or (-1.0, -1.0)
 
             # remember best prec@1 and save checkpoint
@@ -376,7 +383,7 @@ def train_model(args, model, loaders, *, checkpoint=None, dp_device_ids=None,
 
     return model
 
-def _model_loop(args, loop_type, loader, model, opt, epoch, adv, writer):
+def _model_loop(args, loop_type, loader, model, mask, opt, epoch, adv, writer):
     """
     *Internal function* (refer to the train_model and eval_model functions for
     how to train and evaluate models).
@@ -442,7 +449,12 @@ def _model_loop(args, loop_type, loader, model, opt, epoch, adv, writer):
 
     iterator = tqdm(enumerate(loader), total=len(loader))
     for i, (inp, target) in iterator:
-       # measure data loading time
+        # prune the model with the initial mask
+        prune_model_custom(model, mask, show=False)
+        remove_prune(model, show=False)
+        # check_sparsity(model, use_mask=False)
+
+        # measure data loading time
         target = target.cuda(non_blocking=True)
         output, final_inp = model(inp, target=target, make_adv=adv,
                                   **attack_kwargs)
@@ -516,3 +528,63 @@ def _model_loop(args, loop_type, loader, model, opt, epoch, adv, writer):
 
     return top1.avg, losses.avg
 
+
+def prune_model_custom(model, mask_dict, show=True):
+    if show:
+        print('Pruning with custom mask (all conv layers)')
+    for name,m in model.named_modules():
+        if isinstance(m, nn.Conv2d):
+            mask_name = name+'.weight_mask'
+            if mask_name in mask_dict.keys():
+                prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name+'.weight_mask'])
+            else:
+                print('Can not fing [{}] in mask_dict'.format(mask_name))
+
+
+def check_sparsity(model, use_mask=True, show=True):
+    sum_list = 0
+    zero_sum = 0
+
+    for module_name, module in model.named_modules():
+        if isinstance(module, ch.nn.Conv2d):
+            module_sum_list, module_zero_sum = check_module_sparsity(module, use_mask=use_mask)
+            sum_list += module_sum_list
+            zero_sum += module_zero_sum
+
+    if zero_sum:
+        remain_weight_rate = 100 * (1 - zero_sum / sum_list)
+        if show:
+            print('* remain weight ratio = ', 100 * (1 - zero_sum / sum_list), '%')
+    else:
+        if show:
+            print('no weight for calculating sparsity')
+        remain_weight_rate = None
+
+    return remain_weight_rate
+
+
+def check_module_sparsity(module, use_mask=True):
+    sum_list = 0
+    zero_sum = 0
+
+    if use_mask:
+        for buffer_name, buffer in module.named_buffers():
+            if "weight_mask" in buffer_name:
+                sum_list += buffer.nelement()
+                zero_sum += ch.sum(buffer == 0).item()
+
+    else:
+        for param_name, param in module.named_parameters():
+            if "weight" in param_name:
+                sum_list += param.nelement()
+                zero_sum += ch.sum(param == 0).item()
+
+    return sum_list, zero_sum
+
+
+def remove_prune(model, show=True):
+    if show:
+        print('Remove hooks for multiplying masks (all conv layers)')
+    for name, m in model.named_modules():
+        if isinstance(m, nn.Conv2d):
+            prune.remove(m, 'weight')

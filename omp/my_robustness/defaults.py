@@ -4,8 +4,9 @@ use it, see Step 2 of the :doc:`../example_usage/training_lib_part_1`
 walkthrough.
 """
 
-from . import attacker, datasets
-from .tools import helpers
+from robustness import attacker
+from robustness import datasets
+from robustness.tools import helpers
 
 BY_DATASET = 'varies by dataset'
 REQ = 'REQUIRED'

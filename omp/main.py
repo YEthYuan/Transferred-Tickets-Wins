@@ -1,4 +1,5 @@
 import argparse
+import copy
 import os
 
 import cox.store
@@ -84,9 +85,6 @@ def main(args, store):
 
     model, checkpoint = get_model(args, ds)
 
-    if args.eval_only:
-        return train.eval_model(args, model, validation_loader, store=store)
-
     check_sparsity(model, use_mask=False)
     cur_prune_rate = args.prune_rate
     print("L1 Unstructured Pruning Start")
@@ -94,14 +92,21 @@ def main(args, store):
     print("Pruning Done!")
     check_sparsity(model, use_mask=True)
 
+    # Extract mask
+    current_mask = extract_mask(model.state_dict())
+    remove_prune(model)
+    model, checkpoint = get_model(args, ds)
+
+    if args.eval_only:
+        return train.eval_model(args, model, current_mask, validation_loader, store=store)
+
     # update_params = freeze_model(model, freeze_level=args.freeze_level)
     update_params = None
 
     print(f"Dataset: {args.dataset} | Model: {args.arch}")
-    train.train_model(args, model, (train_loader, validation_loader), store=store,
+    train.train_model(args, model, (train_loader, validation_loader), mask=current_mask, store=store,
                       checkpoint=checkpoint, update_params=update_params)
 
-    remove_prune(model)
     check_sparsity(model, use_mask=False)
 
 
@@ -348,12 +353,33 @@ def pruning_model(model, px):
     )
 
 
+def prune_model_custom(model, mask_dict):
+    print('Pruning with custom mask (all conv layers)')
+    for name, m in model.named_modules():
+        if isinstance(m, nn.Conv2d):
+            mask_name = name + '.weight_mask'
+            if mask_name in mask_dict.keys():
+                prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name + '.weight_mask'])
+            else:
+                print('Can not fing [{}] in mask_dict'.format(mask_name))
+
+
 def remove_prune(model):
     print('Remove hooks for multiplying masks (all conv layers)')
     for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
             prune.remove(m, 'weight')
 
+
+def extract_mask(model_dict):
+
+    new_dict = {}
+    for key in model_dict.keys():
+        if 'mask' in key:
+            new_mask_key = 'module.'+key
+            new_dict[new_mask_key] = copy.deepcopy(model_dict[key])
+
+    return new_dict
 
 if __name__ == "__main__":
     args = parser.parse_args()
