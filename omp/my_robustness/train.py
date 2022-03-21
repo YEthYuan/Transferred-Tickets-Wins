@@ -381,7 +381,7 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
         if schedule: schedule.step()
         if has_attr(args, 'epoch_hook'): args.epoch_hook(model, log_info)
 
-    return model
+    return best_prec1
 
 def _model_loop(args, loop_type, loader, model, mask, opt, epoch, adv, writer):
     """

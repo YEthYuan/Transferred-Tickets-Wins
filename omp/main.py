@@ -45,6 +45,7 @@ parser.add_argument('--step-lr', type=int, default=30)
 parser.add_argument('--batch-size', type=int, default=64)
 parser.add_argument('--weight-decay', type=float, default=5e-4)
 parser.add_argument('--prune_rate', type=float, default=0)
+parser.add_argument('--prune_percent', type=int, default=None)
 parser.add_argument('--adv-train', type=int, default=0)
 parser.add_argument('--adv-eval', type=int, default=0)
 parser.add_argument('--workers', type=int, default=0)
@@ -72,6 +73,10 @@ def main(args, store):
     '''Given arguments and a cox store, trains as a model. Check out the 
     argparse object in this file for argument options.
     '''
+    if args.prune_percent:
+        args.prune_rate = args.prune_percent / 100
+        print("current prune_rate=", args.prune_rate)
+
     ds, train_loader, validation_loader = get_dataset_and_loaders(args)
 
     if args.per_class_accuracy:
@@ -92,9 +97,9 @@ def main(args, store):
     print("L1 Unstructured Pruning Start")
     pruning_model(model, cur_prune_rate)
     print("Pruning Done!")
-    check_sparsity(model, use_mask=True)
 
     # Extract mask
+    check_sparsity(model, use_mask=True)
     current_mask = extract_mask(model.state_dict())
     remove_prune(model)
 
@@ -117,10 +122,15 @@ def main(args, store):
     update_params = None
 
     print(f"Dataset: {args.dataset} | Model: {args.arch}")
-    train.train_model(args, model, (train_loader, validation_loader), mask=current_mask, store=store,
+    best_prec = train.train_model(args, model, (train_loader, validation_loader), mask=current_mask, store=store,
                       checkpoint=checkpoint, update_params=update_params)
 
     check_sparsity(model, use_mask=False)
+    outp_str = "nat" if args.pytorch_pretrained else "adv"+f" {args.prune_rate} best prec {best_prec}"
+    print(outp_str)
+    f = open("omp_log.txt", "a+")
+    f.write(outp_str)
+    f.close()
 
 
 def get_per_class_accuracy(args, loader):
