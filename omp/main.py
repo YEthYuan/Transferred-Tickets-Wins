@@ -47,7 +47,7 @@ parser.add_argument('--adv-eval', type=int, default=0)
 parser.add_argument('--workers', type=int, default=0)
 parser.add_argument('--resume', action='store_true',
                     help='Whether to resume or not (Overrides the one in robustness.defaults)')
-parser.add_argument('--pytorch-pretrained', action='store_true', default=True,
+parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
 parser.add_argument('--cifar10-cifar10', action='store_true',
                     help='cifar10 to cifar10 transfer')
