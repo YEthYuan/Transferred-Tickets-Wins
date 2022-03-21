@@ -5,12 +5,12 @@ python main.py \
   --dataset cifar10 \
   --exp-name img-c10-resnet50-eps3-p40-finetune \
   --epochs 150 \
-  --lr 0.01 \
-  --step-lr 30 \
+  --lr 0.001 \
+  --step-lr 50 \
   --batch-size 64 \
   --weight-decay 5e-4 \
   --adv-train 0 \
-  --adv-eval 1 \
+  --adv-eval 0 \
   --workers 0 \
   --model-path pretrained_models/resnet50_l2_eps3.ckpt \
   --freeze-level -1
