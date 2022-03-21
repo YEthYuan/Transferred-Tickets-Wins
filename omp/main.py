@@ -3,6 +3,7 @@ import copy
 import os
 
 import cox.store
+import dill
 import numpy as np
 import torch as ch
 from cox import utils
@@ -37,12 +38,13 @@ parser.add_argument('--exp-name', type=str, default='test-debug-run')
 parser.add_argument('--arch', type=str, default='resnet18')
 # parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_l2_eps3.ckpt')
 parser.add_argument('--model-path', type=str, default=None)
+parser.add_argument('--mask-save-dir', type=str, default='extracted_masks')
 parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--step-lr', type=int, default=30)
 parser.add_argument('--batch-size', type=int, default=64)
 parser.add_argument('--weight-decay', type=float, default=5e-4)
-parser.add_argument('--prune_rate', type=float, default=0.9)
+parser.add_argument('--prune_rate', type=float, default=0)
 parser.add_argument('--adv-train', type=int, default=0)
 parser.add_argument('--adv-eval', type=int, default=0)
 parser.add_argument('--workers', type=int, default=0)
@@ -95,6 +97,17 @@ def main(args, store):
     # Extract mask
     current_mask = extract_mask(model.state_dict())
     remove_prune(model)
+
+    if args.mask_save_dir:
+        sd_info = {
+            'model':model.state_dict(),
+            'mask':current_mask,
+            'prune_rate':args.prune_rate,
+            'orig_model_name':args.model_path
+        }
+        ckpt_save_path = os.path.join(args.mask_save_dir, "nat" if args.pytorch_pretrained else "adv"+f"_pr{args.prune_rate}_ticket.pth")
+        ch.save(sd_info, ckpt_save_path)
+
     model, checkpoint = get_model(args, ds)
 
     if args.eval_only:
