@@ -5,8 +5,8 @@ import cox.store
 import numpy as np
 import torch as ch
 from cox import utils
-from robustness import datasets, defaults, model_utils, train, attacker
-from robustness.tools import helpers
+from my_robustness import datasets, defaults, model_utils, train, attacker
+from my_robustness.tools import helpers
 from torch import nn
 from torch.nn.utils import prune
 from torchvision import models
@@ -34,9 +34,9 @@ parser.add_argument('--data', type=str, default='/home/yuanye/data')
 parser.add_argument('--out-dir', type=str, default='runs')
 parser.add_argument('--exp-name', type=str, default='test-debug-run')
 parser.add_argument('--arch', type=str, default='resnet18')
-# parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_eps0.ckpt')
-parser.add_argument('--model-path', type=str, default=None)
-parser.add_argument('--epochs', type=int, default=1)
+parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_l2_eps3.ckpt')
+# parser.add_argument('--model-path', type=str, default=None)
+parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--step-lr', type=int, default=30)
 parser.add_argument('--batch-size', type=int, default=64)
@@ -92,9 +92,7 @@ def main(args, store):
     print("L1 Unstructured Pruning Start")
     pruning_model(model, cur_prune_rate)
     print("Pruning Done!")
-    # check_sparsity(model, use_mask=True)
-    remove_prune(model)
-    check_sparsity(model, use_mask=False)
+    check_sparsity(model, use_mask=True)
 
     # update_params = freeze_model(model, freeze_level=args.freeze_level)
     update_params = None
@@ -102,6 +100,9 @@ def main(args, store):
     print(f"Dataset: {args.dataset} | Model: {args.arch}")
     train.train_model(args, model, (train_loader, validation_loader), store=store,
                       checkpoint=checkpoint, update_params=update_params)
+
+    remove_prune(model)
+    check_sparsity(model, use_mask=False)
 
 
 def get_per_class_accuracy(args, loader):
