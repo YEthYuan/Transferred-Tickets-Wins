@@ -38,13 +38,13 @@ parser.add_argument('--exp-name', type=str, default='test-debug-run')
 parser.add_argument('--arch', type=str, default='resnet18')
 # parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_l2_eps3.ckpt')
 parser.add_argument('--model-path', type=str, default=None)
-parser.add_argument('--mask-save-dir', type=str, default='extracted_masks')
+parser.add_argument('--mask-save-dir', type=str, default=None)
 parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--step-lr', type=int, default=30)
 parser.add_argument('--batch-size', type=int, default=64)
 parser.add_argument('--weight-decay', type=float, default=5e-4)
-parser.add_argument('--prune_rate', type=float, default=0.5)
+parser.add_argument('--prune_rate', type=float, default=0.9)
 parser.add_argument('--prune_percent', type=int, default=None)
 parser.add_argument('--structural_prune', action='store_true',
                     help='Use the structural pruning method (currently channel pruning)')
@@ -55,6 +55,8 @@ parser.add_argument('--resume', action='store_true',
                     help='Whether to resume or not (Overrides the one in robustness.defaults)')
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
+parser.add_argument('--only-extract-mask', action='store_true',
+                    help='If True, only extract the ticket from Imagenet pretrained model')
 parser.add_argument('--cifar10-cifar10', action='store_true',
                     help='cifar10 to cifar10 transfer')
 parser.add_argument('--subset', type=int, default=None,
@@ -79,7 +81,11 @@ def main(args, store):
         args.prune_rate = args.prune_percent / 100
         print("current prune_rate=", args.prune_rate)
 
-    ds, train_loader, validation_loader = get_dataset_and_loaders(args)
+    if args.only_extract_mask:
+        args.dataset = 'imagenet'
+        ds = get_dataset(args)
+    else:
+        ds, train_loader, validation_loader = get_dataset_and_loaders(args)
 
     if args.per_class_accuracy:
         assert args.dataset in ['pets', 'caltech101', 'caltech256', 'flowers', 'aircraft'], \
@@ -110,6 +116,18 @@ def main(args, store):
     check_sparsity(model, use_mask=True)
     current_mask = extract_mask(model.state_dict())
     remove_prune(model)
+
+    if args.only_extract_mask:
+        sd_info = {
+            'model': model.state_dict(),
+            'mask': current_mask,
+            'prune_rate': args.prune_rate,
+            'orig_model_name': args.model_path
+        }
+        ckpt_save_path = os.path.join(args.mask_save_dir, ("nat" if args.pytorch_pretrained else "adv") + (
+            "_s" if args.structural_prune else "_uns") + f"_pr{args.prune_rate}_ticket_ImageNet.pth")
+        ch.save(sd_info, ckpt_save_path)
+        return
 
     if args.mask_save_dir:
         sd_info = {
@@ -184,6 +202,16 @@ def get_per_class_accuracy(args, loader):
         return weighted_prec1.item(), normal_prec1.item()
 
     return custom_acc
+
+
+def get_dataset(args):
+    ds = None
+    if args.dataset in ['imagenet', 'stylized_imagenet']:
+        ds = datasets.ImageNet(args.data)
+    else:
+        pass
+
+    return ds
 
 
 def get_dataset_and_loaders(args):
