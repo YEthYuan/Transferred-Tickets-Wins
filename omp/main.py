@@ -44,8 +44,10 @@ parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--step-lr', type=int, default=30)
 parser.add_argument('--batch-size', type=int, default=64)
 parser.add_argument('--weight-decay', type=float, default=5e-4)
-parser.add_argument('--prune_rate', type=float, default=0)
+parser.add_argument('--prune_rate', type=float, default=0.5)
 parser.add_argument('--prune_percent', type=int, default=None)
+parser.add_argument('--structural_prune', action='store_true',
+                    help='Use the structural pruning method (currently channel pruning)')
 parser.add_argument('--adv-train', type=int, default=0)
 parser.add_argument('--adv-eval', type=int, default=0)
 parser.add_argument('--workers', type=int, default=0)
@@ -66,7 +68,7 @@ parser.add_argument('--freeze-level', type=int, default=-1,
 parser.add_argument('--additional-hidden', type=int, default=0,
                     help='How many hidden layers to add on top of pretrained network + classification layer')
 parser.add_argument('--per-class-accuracy', action='store_true', help='Report the per-class accuracy. '
-                    'Can be used only with pets, caltech101, caltech256, aircraft, and flowers.')
+                                                                      'Can be used only with pets, caltech101, caltech256, aircraft, and flowers.')
 
 
 def main(args, store):
@@ -91,12 +93,18 @@ def main(args, store):
         args.custom_accuracy = get_per_class_accuracy(args, validation_loader)
 
     model, checkpoint = get_model(args, ds)
-
     check_sparsity(model, use_mask=False)
-    cur_prune_rate = args.prune_rate
-    print("L1 Unstructured Pruning Start")
-    pruning_model(model, cur_prune_rate)
-    print("Pruning Done!")
+
+    if args.structural_prune:
+        cur_prune_rate = args.prune_rate
+        print("L2 Structured Pruning (Conv2d channel pruning) Start")
+        prune_model_structural(model, cur_prune_rate)
+        print("L2 Structured Pruning (Conv2d channel pruning) Done!")
+    else:
+        cur_prune_rate = args.prune_rate
+        print("L1 Unstructured Pruning Start")
+        pruning_model(model, cur_prune_rate)
+        print("L1 Unstructured Pruning Done!")
 
     # Extract mask
     check_sparsity(model, use_mask=True)
@@ -105,12 +113,13 @@ def main(args, store):
 
     if args.mask_save_dir:
         sd_info = {
-            'model':model.state_dict(),
-            'mask':current_mask,
-            'prune_rate':args.prune_rate,
-            'orig_model_name':args.model_path
+            'model': model.state_dict(),
+            'mask': current_mask,
+            'prune_rate': args.prune_rate,
+            'orig_model_name': args.model_path
         }
-        ckpt_save_path = os.path.join(args.mask_save_dir, "nat" if args.pytorch_pretrained else "adv"+f"_pr{args.prune_rate}_ticket.pth")
+        ckpt_save_path = os.path.join(args.mask_save_dir, ("nat" if args.pytorch_pretrained else "adv") + (
+            "_s" if args.structural_prune else "_uns") + f"_pr{args.prune_rate}_ticket.pth")
         ch.save(sd_info, ckpt_save_path)
 
     model, checkpoint = get_model(args, ds)
@@ -123,10 +132,11 @@ def main(args, store):
 
     print(f"Dataset: {args.dataset} | Model: {args.arch}")
     best_prec = train.train_model(args, model, (train_loader, validation_loader), mask=current_mask, store=store,
-                      checkpoint=checkpoint, update_params=update_params)
+                                  checkpoint=checkpoint, update_params=update_params)
 
     check_sparsity(model, use_mask=False)
-    outp_str = ("nat" if args.pytorch_pretrained else "adv")+f" {args.prune_rate} best prec {best_prec}"
+    outp_str = ("Structural " if args.structural_prune else "Unstructural ") + (
+        "nat" if args.pytorch_pretrained else "adv") + f" {args.prune_rate} best prec {best_prec} \n"
     print(outp_str)
     f = open("omp_log.txt", "a+")
     f.write(outp_str)
@@ -137,6 +147,7 @@ def get_per_class_accuracy(args, loader):
     '''Returns the custom per_class_accuracy function. When using this custom function         
     look at only the validation accuracy. Ignore trainig set accuracy.
     '''
+
     def _get_class_weights(args, loader):
         '''Returns the distribution of classes in a given dataset.
         '''
@@ -151,7 +162,7 @@ def get_per_class_accuracy(args, loader):
             targets = [s[1] for s in loader.dataset.samples]
 
         counts = np.unique(targets, return_counts=True)[1]
-        class_weights = counts.sum()/(counts*len(counts))
+        class_weights = counts.sum() / (counts * len(counts))
         return ch.Tensor(class_weights)
 
     class_weights = _get_class_weights(args, loader)
@@ -165,10 +176,10 @@ def get_per_class_accuracy(args, loader):
         prec1, _ = helpers.accuracy(
             logits, labels, topk=(1, maxk), exact=True)
 
-        normal_prec1 = prec1.sum(0, keepdim=True).mul_(100/batch_size)
+        normal_prec1 = prec1.sum(0, keepdim=True).mul_(100 / batch_size)
         weighted_prec1 = prec1 * class_weights[labels.cpu()].cuda()
         weighted_prec1 = weighted_prec1.sum(
-            0, keepdim=True).mul_(100/batch_size)
+            0, keepdim=True).mul_(100 / batch_size)
 
         return weighted_prec1.item(), normal_prec1.item()
 
@@ -239,7 +250,8 @@ def get_model(args, ds):
             checkpoint = None
         else:
             model, _ = model_utils.make_and_restore_model(arch=args.arch, dataset=ds,
-                                                          resume_path=args.model_path, pytorch_pretrained=args.pytorch_pretrained)
+                                                          resume_path=args.model_path,
+                                                          pytorch_pretrained=args.pytorch_pretrained)
             checkpoint = None
 
         if not args.no_replace_last_layer and not args.eval_only:
@@ -304,7 +316,7 @@ def args_preprocess(args):
         cs.FGVC_PATH = cs.FLOWERS_PATH = cs.DTD_PATH = cs.SUN_PATH = cs.FOOD_PATH = cs.BIRDS_PATH = args.data
 
     ALL_DS = list(transfer_datasets.DS_TO_FUNC.keys()) + \
-        ['imagenet', 'breeds_living_9', 'stylized_imagenet']
+             ['imagenet', 'breeds_living_9', 'stylized_imagenet']
     assert args.dataset in ALL_DS
 
     # Important for automatic job retries on the cluster in case of premptions. Avoid uuids.
@@ -361,12 +373,11 @@ def check_module_sparsity(module, use_mask=True):
 
 
 def pruning_model(model, px):
-
     print('Apply Unstructured L1 Pruning Globally (all conv layers)')
-    parameters_to_prune =[]
-    for name,m in model.named_modules():
+    parameters_to_prune = []
+    for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
-            parameters_to_prune.append((m,'weight'))
+            parameters_to_prune.append((m, 'weight'))
 
     parameters_to_prune = tuple(parameters_to_prune)
     prune.global_unstructured(
@@ -374,6 +385,13 @@ def pruning_model(model, px):
         pruning_method=prune.L1Unstructured,
         amount=px,
     )
+
+
+def prune_model_structural(model, cur_prune_rate):
+    print('Apply Structured L2 Channel Pruning (all conv layers)')
+    for name, m in model.named_modules():
+        if isinstance(m, nn.Conv2d):
+            prune.ln_structured(m, name="weight", amount=cur_prune_rate, n=2, dim=0)
 
 
 def prune_model_custom(model, mask_dict):
@@ -395,14 +413,14 @@ def remove_prune(model):
 
 
 def extract_mask(model_dict):
-
     new_dict = {}
     for key in model_dict.keys():
         if 'mask' in key:
-            new_mask_key = 'module.'+key
+            new_mask_key = 'module.' + key
             new_dict[new_mask_key] = copy.deepcopy(model_dict[key])
 
     return new_dict
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
