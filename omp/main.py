@@ -126,7 +126,7 @@ def main(args, store):
                       checkpoint=checkpoint, update_params=update_params)
 
     check_sparsity(model, use_mask=False)
-    outp_str = "nat" if args.pytorch_pretrained else "adv"+f" {args.prune_rate} best prec {best_prec}"
+    outp_str = ("nat" if args.pytorch_pretrained else "adv")+f" {args.prune_rate} best prec {best_prec}"
     print(outp_str)
     f = open("omp_log.txt", "a+")
     f.write(outp_str)
