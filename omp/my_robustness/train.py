@@ -9,7 +9,7 @@ from cox.utils import Parameters
 from robustness.tools import helpers
 from robustness.tools.helpers import AverageMeter, ckpt_at_epoch, has_attr
 from robustness.tools import constants as consts
-import dill 
+import dill
 import os
 import time
 import warnings
@@ -24,6 +24,7 @@ try:
 except Exception as e:
     warnings.warn('Could not import amp.')
 
+
 def check_required_args(args, eval_only=False):
     """
     Check that the required training arguments are present.
@@ -34,9 +35,9 @@ def check_required_args(args, eval_only=False):
     """
     required_args_eval = ["adv_eval"]
     required_args_train = ["epochs", "out_dir", "adv_train",
-        "log_iters", "lr", "momentum", "weight_decay"]
-    adv_required_args = ["attack_steps", "eps", "constraint", 
-            "use_best", "attack_lr", "random_restarts"]
+                           "log_iters", "lr", "momentum", "weight_decay"]
+    adv_required_args = ["attack_steps", "eps", "constraint",
+                         "use_best", "attack_lr", "random_restarts"]
 
     # Generic function for checking all arguments in a list
     def check_args(args_list):
@@ -44,8 +45,10 @@ def check_required_args(args, eval_only=False):
             assert has_attr(args, arg), f"Missing argument {arg}"
 
     # Different required args based on training or eval:
-    if not eval_only: check_args(required_args_train)
-    else: check_args(required_args_eval)
+    if not eval_only:
+        check_args(required_args_train)
+    else:
+        check_args(required_args_eval)
     # More required args if we are robustly training or evaling
     is_adv = bool(args.adv_train) or bool(args.adv_eval)
     if is_adv:
@@ -81,7 +84,7 @@ def make_optimizer_and_schedule(args, model, checkpoint, params):
     # Make optimizer
     param_list = model.parameters() if params is None else params
     optimizer = SGD(param_list, args.lr, momentum=args.momentum,
-                                weight_decay=args.weight_decay)
+                    weight_decay=args.weight_decay)
 
     if args.mixed_precision:
         model.to('cuda')
@@ -91,7 +94,7 @@ def make_optimizer_and_schedule(args, model, checkpoint, params):
     schedule = None
     if args.custom_lr_multiplier == 'cyclic':
         eps = args.epochs
-        lr_func = lambda t: np.interp([t], [0, eps*4//15, eps], [0, 1, 0])[0]
+        lr_func = lambda t: np.interp([t], [0, eps * 4 // 15, eps], [0, 1, 0])[0]
         schedule = lr_scheduler.LambdaLR(optimizer, lr_func)
     elif args.custom_lr_multiplier:
         cs = args.custom_lr_multiplier
@@ -118,7 +121,7 @@ def make_optimizer_and_schedule(args, model, checkpoint, params):
                   f' Stepping {steps_to_take} times instead...')
             for i in range(steps_to_take):
                 schedule.step()
-        
+
         if 'amp' in checkpoint and checkpoint['amp'] not in [None, 'N/A']:
             amp.load_state_dict(checkpoint['amp'])
 
@@ -128,6 +131,7 @@ def make_optimizer_and_schedule(args, model, checkpoint, params):
             model.load_state_dict(checkpoint['model'])
 
     return optimizer, schedule
+
 
 def eval_model(args, model, mask, loader, store):
     """
@@ -145,30 +149,30 @@ def eval_model(args, model, mask, loader, store):
     check_required_args(args, eval_only=True)
     start_time = time.time()
 
-    if store is not None: 
+    if store is not None:
         store.add_table(consts.LOGS_TABLE, consts.LOGS_SCHEMA)
     writer = store.tensorboard if store else None
 
     assert not hasattr(model, "module"), "model is already in DataParallel."
     model = ch.nn.DataParallel(model)
 
-    prec1, nat_loss = _model_loop(args, 'val', loader, 
-                                        model, mask, None, 0, False, writer)
+    prec1, nat_loss = _model_loop(args, 'val', loader,
+                                  model, mask, None, 0, False, writer)
 
     adv_prec1, adv_loss = float('nan'), float('nan')
-    if args.adv_eval: 
+    if args.adv_eval:
         args.eps = eval(str(args.eps)) if has_attr(args, 'eps') else None
         args.attack_lr = eval(str(args.attack_lr)) if has_attr(args, 'attack_lr') else None
-        adv_prec1, adv_loss = _model_loop(args, 'val', loader, 
-                                        model, mask, None, 0, True, writer)
+        adv_prec1, adv_loss = _model_loop(args, 'val', loader,
+                                          model, mask, None, 0, True, writer)
     log_info = {
-        'epoch':0,
-        'nat_prec1':prec1,
-        'adv_prec1':adv_prec1,
-        'nat_loss':nat_loss,
-        'adv_loss':adv_loss,
-        'train_prec1':float('nan'),
-        'train_loss':float('nan'),
+        'epoch': 0,
+        'nat_prec1': prec1,
+        'adv_prec1': adv_prec1,
+        'nat_loss': nat_loss,
+        'adv_loss': adv_loss,
+        'train_prec1': float('nan'),
+        'train_loss': float('nan'),
         'time': time.time() - start_time
     }
 
@@ -176,8 +180,9 @@ def eval_model(args, model, mask, loader, store):
     if store: store[consts.LOGS_TABLE].append_row(log_info)
     return log_info
 
+
 def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=None,
-            store=None, update_params=None, disable_no_grad=False):
+                store=None, update_params=None, disable_no_grad=False):
     """
     Main function for training a model. 
 
@@ -280,14 +285,14 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
     # Logging setup
     writer = store.tensorboard if store else None
     prec1_key = f"{'adv' if args.adv_train else 'nat'}_prec1"
-    if store is not None: 
+    if store is not None:
         store.add_table(consts.LOGS_TABLE, consts.LOGS_SCHEMA)
-    
+
     # Reformat and read arguments
-    check_required_args(args) # Argument sanity check
+    check_required_args(args)  # Argument sanity check
     for p in ['eps', 'attack_lr', 'custom_eps_multiplier']:
         setattr(args, p, eval(str(getattr(args, p))) if has_attr(args, p) else None)
-    if args.custom_eps_multiplier is not None: 
+    if args.custom_eps_multiplier is not None:
         eps_periods = args.custom_eps_multiplier
         args.custom_eps_multiplier = lambda t: np.interp([t], *zip(*eps_periods))[0]
 
@@ -303,15 +308,16 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
     if checkpoint:
         start_epoch = checkpoint['epoch']
         best_prec1 = checkpoint[prec1_key] if prec1_key in checkpoint \
-            else _model_loop(args, 'val', val_loader, model, mask, None, start_epoch-1, args.adv_train, writer=None)[0]
+            else _model_loop(args, 'val', val_loader, model, mask, None, start_epoch - 1, args.adv_train, writer=None)[
+            0]
 
     # Timestamp for training start time
     start_time = time.time()
 
     for epoch in range(start_epoch, args.epochs):
         # train for one epoch
-        train_prec1, train_loss = _model_loop(args, 'train', train_loader, 
-                model, mask, opt, epoch, args.adv_train, writer)
+        train_prec1, train_loss = _model_loop(args, 'train', train_loader,
+                                              model, mask, opt, epoch, args.adv_train, writer)
 
         prune_model_custom(model, mask, show=False)
         remove_prune(model, show=False)
@@ -321,17 +327,16 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
 
         # evaluate on validation set
         sd_info = {
-            'model':model.state_dict(),
-            'optimizer':opt.state_dict(),
-            'schedule':(schedule and schedule.state_dict()),
-            'epoch': epoch+1,
+            'model': model.state_dict(),
+            'optimizer': opt.state_dict(),
+            'schedule': (schedule and schedule.state_dict()),
+            'epoch': epoch + 1,
             'amp': amp.state_dict() if args.mixed_precision else None,
         }
 
-
         def save_checkpoint(filename):
             ckpt_save_path = os.path.join(args.out_dir if not store else \
-                                          store.path, filename)
+                                              store.path, filename)
             ch.save(sd_info, ckpt_save_path, pickle_module=dill)
 
         save_its = args.save_ckpt_iters
@@ -340,15 +345,15 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
 
         if should_log or last_epoch or should_save_ckpt:
             # log + get best
-            ctx = ch.enable_grad() if disable_no_grad else ch.no_grad() 
+            ctx = ch.enable_grad() if disable_no_grad else ch.no_grad()
             with ctx:
                 prec1, nat_loss = _model_loop(args, 'val', val_loader, model, mask,
-                        None, epoch, False, writer)
+                                              None, epoch, False, writer)
 
             # loader, model, epoch, input_adv_exs
             should_adv_eval = args.adv_eval or args.adv_train
             adv_val = should_adv_eval and _model_loop(args, 'val', val_loader,
-                    model, mask, None, epoch, True, writer)
+                                                      model, mask, None, epoch, True, writer)
             adv_prec1, adv_loss = adv_val or (-1.0, -1.0)
 
             # remember best prec@1 and save checkpoint
@@ -359,13 +364,13 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
 
             # log every checkpoint
             log_info = {
-                'epoch':epoch + 1,
-                'nat_prec1':prec1,
-                'adv_prec1':adv_prec1,
-                'nat_loss':nat_loss,
-                'adv_loss':adv_loss,
-                'train_prec1':train_prec1,
-                'train_loss':train_loss,
+                'epoch': epoch + 1,
+                'nat_prec1': prec1,
+                'adv_prec1': adv_prec1,
+                'nat_loss': nat_loss,
+                'adv_loss': adv_loss,
+                'train_prec1': train_prec1,
+                'train_loss': train_loss,
                 'time': time.time() - start_time
             }
 
@@ -382,6 +387,7 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
         if has_attr(args, 'epoch_hook'): args.epoch_hook(model, log_info)
 
     return best_prec1
+
 
 def _model_loop(args, loop_type, loader, model, mask, opt, epoch, adv, writer):
     """
@@ -423,14 +429,14 @@ def _model_loop(args, loop_type, loader, model, mask, opt, epoch, adv, writer):
     # If adv training (or evaling), set eps and random_restarts appropriately
     if adv:
         eps = args.custom_eps_multiplier(epoch) * args.eps \
-                if (is_train and args.custom_eps_multiplier) else args.eps
+            if (is_train and args.custom_eps_multiplier) else args.eps
         random_restarts = 0 if is_train else args.random_restarts
 
     # Custom training criterion
     has_custom_train_loss = has_attr(args, 'custom_train_loss')
     train_criterion = args.custom_train_loss if has_custom_train_loss \
-            else ch.nn.CrossEntropyLoss()
-    
+        else ch.nn.CrossEntropyLoss()
+
     has_custom_adv_loss = has_attr(args, 'custom_adv_loss')
     adv_criterion = args.custom_adv_loss if has_custom_adv_loss else None
 
@@ -486,7 +492,7 @@ def _model_loop(args, loop_type, loader, model, mask, opt, epoch, adv, writer):
 
         reg_term = 0.0
         if has_attr(args, "regularizer"):
-            reg_term =  args.regularizer(model, inp, target)
+            reg_term = args.regularizer(model, inp, target)
         loss = loss + reg_term
 
         # compute gradient and do SGD step
@@ -508,8 +514,8 @@ def _model_loop(args, loop_type, loader, model, mask, opt, epoch, adv, writer):
         # ITERATOR
         desc = ('{2} Epoch:{0} | Loss {loss.avg:.4f} | '
                 '{1}1 {top1_acc:.3f} | {1}5 {top5_acc:.3f} | '
-                'Reg term: {reg} ||'.format( epoch, prec, loop_msg, 
-                loss=losses, top1_acc=top1_acc, top5_acc=top5_acc, reg=reg_term))
+                'Reg term: {reg} ||'.format(epoch, prec, loop_msg,
+                                            loss=losses, top1_acc=top1_acc, top5_acc=top5_acc, reg=reg_term))
 
         # USER-DEFINED HOOK
         if has_attr(args, 'iteration_hook'):
@@ -532,11 +538,11 @@ def _model_loop(args, loop_type, loader, model, mask, opt, epoch, adv, writer):
 def prune_model_custom(model, mask_dict, show=True):
     if show:
         print('Pruning with custom mask (all conv layers)')
-    for name,m in model.named_modules():
+    for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
-            mask_name = name+'.weight_mask'
+            mask_name = name + '.weight_mask'
             if mask_name in mask_dict.keys():
-                prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name+'.weight_mask'])
+                prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name + '.weight_mask'])
             else:
                 print('Can not fing [{}] in mask_dict'.format(mask_name))
 
