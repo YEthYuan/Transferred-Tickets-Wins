@@ -12,15 +12,14 @@ do
     --arch resnet18 \
     --eps 3 \
     --prune_percent ${p} \
-    --structural_prune \
     --dataset cifar10 \
-    --exp-name img-c10-resnet18-eps3-s-p${p}-linear \
-    --epochs 150 \
-    --opt sgd \
-    --lr 0.01 \
-    --step-lr 50 \
-    --batch-size 64 \
-    --weight-decay 5e-4 \
+    --exp-name img-c10-resnet18-eps3-uns-p${p}-linear-adam \
+    --epochs 100 \
+    --opt adam \
+    --lr 0.1 \
+    --step-lr -1 \
+    --batch-size 512 \
+    --weight-decay 0.0 \
     --adv-train 0 \
     --adv-eval 0 \
     --workers 0 \

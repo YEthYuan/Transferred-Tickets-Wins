@@ -298,7 +298,14 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
 
     # Initial setup
     train_loader, val_loader = loaders
-    opt, schedule = make_optimizer_and_schedule(args, model, checkpoint, update_params)
+    if args.opt == 'adam':
+        print("Use ADAM as the optimizer")
+        opt = ch.optim.Adam(model.parameters(), args.lr, weight_decay=args.weight_decay)
+        schedule = ch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=len(train_loader), eta_min=0,
+                                                           last_epoch=-1)
+    else:
+        print("Use SGD as the optimizer")
+        opt, schedule = make_optimizer_and_schedule(args, model, checkpoint, update_params)
 
     # Put the model into parallel mode
     assert not hasattr(model, "module"), "model is already in DataParallel."

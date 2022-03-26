@@ -16,6 +16,7 @@ do
     --dataset cifar10 \
     --exp-name img-c10-resnet18-eps0-s-p${p}-linear \
     --epochs 150 \
+    --opt sgd \
     --lr 0.01 \
     --step-lr 50 \
     --batch-size 64 \
