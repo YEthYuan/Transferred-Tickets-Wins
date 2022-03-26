@@ -65,7 +65,7 @@ parser.add_argument('--no-tqdm', type=int, default=1,
                     choices=[0, 1], help='Do not use tqdm.')
 parser.add_argument('--no-replace-last-layer', action='store_true',
                     help='Whether to avoid replacing the last layer')
-parser.add_argument('--freeze-level', type=int, default=-1,
+parser.add_argument('--freeze-level', type=int, default=4,
                     help='Up to what layer to freeze in the pretrained model (assumes a resnet architectures)')
 parser.add_argument('--additional-hidden', type=int, default=0,
                     help='How many hidden layers to add on top of pretrained network + classification layer')
@@ -145,8 +145,8 @@ def main(args, store):
     if args.eval_only:
         return train.eval_model(args, model, current_mask, validation_loader, store=store)
 
-    # update_params = freeze_model(model, freeze_level=args.freeze_level)
-    update_params = None
+    update_params = freeze_model(model, freeze_level=args.freeze_level)
+    # update_params = None
 
     print(f"Dataset: {args.dataset} | Model: {args.arch}")
     best_prec = train.train_model(args, model, (train_loader, validation_loader), mask=current_mask, store=store,
