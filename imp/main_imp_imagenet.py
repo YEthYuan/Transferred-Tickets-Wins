@@ -30,6 +30,8 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 ############################# required settings ################################
 parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC',
                     help='path to dataset')
+parser.add_argument('--set', type=str, default='ImageNet')
+
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
@@ -54,7 +56,7 @@ parser.add_argument('--states', default=19, type=int, help='number of iterative 
 parser.add_argument('--start_state', default=0, type=int, help='number of iterative pruning states')
 parser.add_argument('--random', action="store_true", help="using random-init model")
 parser.add_argument("--trainer", type=str, default="default", help="cs, ss, or standard training")
-parser.add_argument('--attack_type', default='fgsm', choices=['fgsm', 'fgsm-rs', 'pgd', 'free'])
+parser.add_argument('--attack_type', default='fgsm-rs', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
 
 ############################# other settings ################################
 parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
@@ -77,6 +79,10 @@ parser.add_argument('--seed', default=None, type=int,
 parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
 
+# Adv params
+parser.add_argument('--epsilon', default=3, type=int)
+parser.add_argument('--alpha', default=10, type=float, help='Step size')
+parser.add_argument('--attack_iters', default=1, type=int, help='Attack iterations')
 
 def main():
     args = parser.parse_args()

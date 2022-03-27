@@ -3,9 +3,8 @@ import torch
 import torch.nn.functional as F
 import tqdm
 
-# from utils.eval_utils import accuracy
-# from utils.logging import AverageMeter, ProgressMeter
-from utils import *
+from .eval_utils import accuracy
+from .logging import AverageMeter, ProgressMeter
 
 import sys
 sys.path.append("../")
@@ -24,13 +23,11 @@ imagenet_mean = (0.485, 0.456, 0.406)
 imagenet_std = (0.229, 0.224, 0.225)
 
 
-
-
 def clamp(X, lower_limit, upper_limit):
     return torch.max(torch.min(X, upper_limit), lower_limit)
 
 
-def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer, log):
+def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
     batch_time = AverageMeter("Time", ":6.3f")
     data_time = AverageMeter("Data", ":6.3f")
     losses = AverageMeter("Loss", ":.3f")
@@ -141,26 +138,6 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer, lo
         optimizer.zero_grad()
         loss.backward()
 
-        if args.task == 'ft_full' and args.ft_full_mode == 'only_zero':
-            for n, m in model.named_modules():
-                if hasattr(m, "clear_subset_grad"):
-                    m.clear_subset_grad()
-
-        if args.task == 'ft_full' and args.ft_full_mode == 'decay_on_zero':
-            for n, m in model.named_modules():
-                if hasattr(m, "weight_decay_custom"):
-                    m.weight_decay_custom(args.weight_decay, args.weight_decay_on_zero)
-
-        if args.task == 'ft_full' and args.ft_full_mode == 'low_lr_zero':
-            for n, m in model.named_modules():
-                if hasattr(m, "lr_scale_zero"):
-                    m.lr_scale_zero(args.lr_scale_zero)
-        
-        if args.discard_mode:
-            for n, m in model.named_modules():
-                if hasattr(m, "clear_low_score_grad"):
-                    m.clear_low_score_grad()
-
         optimizer.step()
 
         # measure elapsed time
@@ -179,7 +156,7 @@ def fgsm(gradz, step_size):
     return step_size*torch.sign(gradz)
 
 global_noise_data = None
-def train_adv_free(train_loader, model, criterion, optimizer, epoch, args, writer, log):
+def train_adv_free(train_loader, model, criterion, optimizer, epoch, args, writer):
     global global_noise_data
 
     batch_time = AverageMeter("Time", ":6.3f")
@@ -395,7 +372,7 @@ def attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_ite
     return max_delta
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args, writer, log):
+def train(train_loader, model, criterion, optimizer, epoch, args, writer):
     batch_time = AverageMeter("Time", ":6.3f")
     data_time = AverageMeter("Data", ":6.3f")
     losses = AverageMeter("Loss", ":.3f")
