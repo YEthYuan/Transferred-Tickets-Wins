@@ -84,6 +84,7 @@ parser.add_argument('--epsilon', default=3, type=int)
 parser.add_argument('--alpha', default=10, type=float, help='Step size')
 parser.add_argument('--attack_iters', default=1, type=int, help='Attack iterations')
 
+
 def main():
     args = parser.parse_args()
 
@@ -107,10 +108,14 @@ def main():
 
 
 def main_worker(gpu, args):
+    best_acc1 = 0.0
+    best_epoch = 0
+    natural_acc1_at_best_robustness = 0.0
 
     run_base_dir, ckpt_base_dir, log_base_dir = get_directories(args)
     args.ckpt_base_dir = ckpt_base_dir
     os.makedirs(args.ckpt_base_dir, exist_ok=True)
+    logger = open(os.path.join(log_base_dir, "log.txt"), "a+")
 
     args.gpu = gpu
 
@@ -141,9 +146,6 @@ def main_worker(gpu, args):
 
     # init pretrianed weight 
     ticket_init_weight = copy.deepcopy(model.state_dict())
-    save_checkpoint({
-        'state_dict': model.state_dict(),
-    }, False, checkpoint=args.ckpt_base_dir, filename="weight_init.pth.tar")
 
     print('dataparallel mode')
     model = torch.nn.DataParallel(model).cuda()
@@ -166,7 +168,9 @@ def main_worker(gpu, args):
                 checkpoint = torch.load(args.resume, map_location=loc)
             args.start_epoch = checkpoint['epoch']
             args.start_state = checkpoint['state']
+            args.arch = checkpoint['arch']
             best_acc1 = checkpoint['best_acc1']
+            natural_acc1_at_best_robustness = checkpoint['natural_acc1_at_best_robustness']
             if_pruned = checkpoint['if_pruned']
             ticket_init_weight = checkpoint['init_weight']
 
@@ -175,10 +179,17 @@ def main_worker(gpu, args):
 
             model.module.load_state_dict(checkpoint['state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})"
+            print("=> loaded checkpoint '{}' (resume from epoch {})"
                   .format(args.resume, checkpoint['epoch']))
+            logger.write("=> loaded checkpoint '{}' (resume from epoch {})"
+                         .format(args.resume, checkpoint['epoch']))
+            logger.write(f"\n")
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
+
+    save_checkpoint({
+        'state_dict': model.state_dict(),
+    }, False, checkpoint=args.ckpt_base_dir, filename="weight_init.pth.tar")
 
     cudnn.benchmark = True
 
@@ -227,15 +238,11 @@ def main_worker(gpu, args):
         else:
             cur_sparsity = 100.00
 
-        # the best record of the current pruning state
-        best_acc1 = 0.0
-        best_acc5 = 0.0
-        best_nat_acc1 = 0.0
-        best_nat_acc5 = 0.0
-        best_train_acc1 = 0.0
-        best_train_acc5 = 0.0
-        best_epoch = 0
-        natural_acc1_at_best_robustness = 0.0
+        if args.start_epoch == 0:
+            # the best record of the current pruning state
+            best_acc1 = 0.0
+            best_epoch = 0
+            natural_acc1_at_best_robustness = 0.0
 
         for epoch in range(args.start_epoch, args.epochs):
             print(optimizer.state_dict()['param_groups'][0]['lr'])
@@ -272,11 +279,13 @@ def main_worker(gpu, args):
                 'optimizer': optimizer.state_dict(),
                 'if_pruned': if_pruned,
                 'init_weight': ticket_init_weight
-            }, is_best, checkpoint=args.ckpt_base_dir, best_name='sparsity' + str(cur_sparsity) + 'model_best.pth.tar')
+            }, is_best, checkpoint=args.ckpt_base_dir,
+                best_name='sparsity_' + str(cur_sparsity) + '_model_best.pth.tar')
 
-        check_sparsity(model.module, use_mask=False, conv1=False)
-        print(f"State {prun_iter} training report: ")
-        print('best acc1 = ', best_acc1, ' best epoch = ', best_epoch)
+            logger.write(
+                f"State {prun_iter} Epoch {epoch}: Adv@1: {adv_acc1}, Nat@1: {nat_acc1}, Train@1: {train_acc1}, BestEp: {best_epoch - 1}, BestAdv@1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}\n")
+
+        before_sp = check_sparsity(model.module, use_mask=False, conv1=False)
 
         # start pruning 
         print('start pruning model')
@@ -290,11 +299,38 @@ def main_worker(gpu, args):
         model.module.load_state_dict(ticket_init_weight)
 
         prune_model_custom(model.module, current_mask, conv1=False)
-        validate_adv(val_loader, model, criterion, args, writer)
+        state_val1, state_val5 = validate_adv(val_loader, model, criterion, args, writer)
+
+        cur_sparsity = check_sparsity(model.module, use_mask=False, conv1=False)
+        if cur_sparsity:
+            cur_sparsity = round(cur_sparsity, 2)
+        else:
+            cur_sparsity = 100.00
+
+        save_checkpoint({
+            'mask': current_mask,
+        }, False, checkpoint=args.ckpt_base_dir, filename=f"mask_state{prun_iter}_sp{cur_sparsity}.pth.tar")
+
+        print("*" * 50)
+        logger.write("*" * 50 + f"\n")
+        print(f"State {prun_iter} report: ")
+        logger.write(f"State {prun_iter} report: \n")
+        print(f'Training: best acc1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}, best epoch: {best_epoch}')
+        logger.write(
+            f'Training: best acc1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}, best epoch: {best_epoch}\n')
+        print(f"Pruning: Sparsity before: {before_sp}, Sparsity after: {cur_sparsity}")
+        logger.write(f"Pruning: Sparsity before: {before_sp}, Sparsity after: {cur_sparsity}\n")
+        print(f"Evaluation: Adv@1: {state_val1}, Adv@5: {state_val5}")
+        logger.write(f"Evaluation: Adv@1: {state_val1}, Adv@5: {state_val5}\n")
+
         args.start_epoch = 0
         optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                     momentum=args.momentum,
                                     weight_decay=args.weight_decay)
+
+    save_checkpoint({
+        'state_dict': model.state_dict(),
+    }, False, checkpoint=args.ckpt_base_dir, filename="weight_latest.pth.tar")
 
 
 # def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -488,6 +524,10 @@ def get_directories(args):
 
     if not run_base_dir.exists():
         os.makedirs(run_base_dir)
+    if not log_base_dir.exists():
+        os.makedirs(log_base_dir)
+    if not ckpt_base_dir.exists():
+        os.makedirs(ckpt_base_dir)
 
     (run_base_dir / "settings.txt").write_text(str(args))
 
