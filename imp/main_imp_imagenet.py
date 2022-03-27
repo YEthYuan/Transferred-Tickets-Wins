@@ -32,19 +32,19 @@ parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Dat
                     help='path to dataset')
 parser.add_argument('--set', type=str, default='ImageNet')
 
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet50)')
 parser.add_argument('--epochs', default=10, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('-b', '--batch-size', default=256, type=int,
+parser.add_argument('-b', '--batch-size', default=512, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
                          'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float,
+parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--log_dir', default='runs', type=str)
 parser.add_argument('--name', default='debug_runs', type=str, help='experiment name')
@@ -56,10 +56,9 @@ parser.add_argument('--states', default=19, type=int, help='number of iterative 
 parser.add_argument('--start_state', default=0, type=int, help='number of iterative pruning states')
 parser.add_argument('--random', action="store_true", help="using random-init model")
 parser.add_argument("--trainer", type=str, default="default", help="cs, ss, or standard training")
-parser.add_argument('--attack_type', default='fgsm-rs', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
 
 ############################# other settings ################################
-parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -80,8 +79,9 @@ parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
 
 # Adv params
-parser.add_argument('--epsilon', default=3, type=int)
-parser.add_argument('--alpha', default=10, type=float, help='Step size')
+parser.add_argument('--attack_type', default='fgsm-rs', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
+parser.add_argument('--epsilon', default=2, type=int)
+parser.add_argument('--alpha', default=2.5, type=float, help='Step size')
 parser.add_argument('--attack_iters', default=1, type=int, help='Attack iterations')
 
 
@@ -139,9 +139,19 @@ def main_worker(gpu, args):
         if not ('model' in checkpoint):
             state_dict_path = 'state_dict'
 
-        sd = checkpoint[state_dict_path]
-        sd = {k[len('module.'):]: v for k, v in sd.items()}
-        model.load_state_dict(sd)
+        # sd = checkpoint[state_dict_path]
+        # sd = {k[len('module.'):]: v for k, v in sd.items()}
+        # model.load_state_dict(sd)
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        sd = checkpoint['model']
+        for k,v in sd.items():
+            if 'attacker' in k:
+                break
+            if 'normalize' not in k:
+                name = k[len('module.model.'):]
+                new_state_dict[name] = v
+        model.load_state_dict(new_state_dict)
         print("=> loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
 
     # init pretrianed weight 
