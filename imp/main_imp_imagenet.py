@@ -28,7 +28,7 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 ############################# required settings ################################
-parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC',
+parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
                     help='path to dataset')
 parser.add_argument('--set', type=str, default='ImageNet')
 
@@ -47,8 +47,8 @@ parser.add_argument('-b', '--batch-size', default=512, type=int,
 parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--log_dir', default='runs', type=str)
-parser.add_argument('--name', default='debug_runs', type=str, help='experiment name')
-parser.add_argument('--model-path', type=str, default=None, help='path of the pretrained weight')
+parser.add_argument('--name', default='R18_Linf_Eps2', type=str, help='experiment name')
+parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt', help='path of the pretrained weight')
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
 parser.add_argument('--percent', default=0.2, type=float, help='pruning rate for each iteration')
@@ -73,7 +73,7 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--seed', default=None, type=int,
+parser.add_argument('--seed', default=142, type=int,
                     help='seed for initializing training. ')
 parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
