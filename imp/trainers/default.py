@@ -3,12 +3,13 @@ import torch
 import torch.nn.functional as F
 import tqdm
 
-from utils.eval_utils import accuracy
-from utils.logging import AverageMeter, ProgressMeter
+# from utils.eval_utils import accuracy
+# from utils.logging import AverageMeter, ProgressMeter
+from utils import *
 
 import sys
 sys.path.append("../")
-from imp.pruning_utils import *
+from pruning_utils import *
 
 
 __all__ = ["train", "validate", "modifier"]

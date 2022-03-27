@@ -6,6 +6,7 @@ import shutil
 import time
 import warnings
 import copy
+import math
 
 import importlib
 import torch
@@ -27,7 +28,7 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 ############################# required settings ################################
-parser.add_argument('data', metavar='DIR', default='/home/yuanye/data',
+parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC',
                     help='path to dataset')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
@@ -80,7 +81,7 @@ parser.add_argument('--gpu', default=None, type=int,
 def main():
     args = parser.parse_args()
 
-    os.makedirs(args.save_dir, exist_ok=True)
+    os.makedirs(args.log_dir, exist_ok=True)
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -103,6 +104,7 @@ def main_worker(gpu, args):
 
     run_base_dir, ckpt_base_dir, log_base_dir = get_directories(args)
     args.ckpt_base_dir = ckpt_base_dir
+    os.makedirs(args.ckpt_base_dir, exist_ok=True)
 
     args.gpu = gpu
 
