@@ -216,7 +216,10 @@ def main_worker(gpu, args):
 
     for prun_iter in range(args.start_state, args.states):
         cur_sparsity = check_sparsity(model.module, use_mask=False, conv1=False)
-        cur_sparsity = round(cur_sparsity, 2)
+        if cur_sparsity:
+            cur_sparsity = round(cur_sparsity, 2)
+        else:
+            cur_sparsity = 100.00
 
         # the best record of the current pruning state
         best_acc1 = 0.0

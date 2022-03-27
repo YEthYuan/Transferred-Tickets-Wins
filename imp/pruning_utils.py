@@ -17,7 +17,7 @@ def pruning_model(model, px, conv1=False):
     parameters_to_prune = []
     for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
-            if name == 'conv1':
+            if 'conv1' in name and 'layer' not in name:
                 if conv1:
                     parameters_to_prune.append((m, 'weight'))
                 else:
@@ -38,7 +38,7 @@ def pruning_model_random(model, px, conv1=False):
     parameters_to_prune = []
     for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
-            if name == 'conv1':
+            if 'conv1' in name and 'layer' not in name:
                 if conv1:
                     parameters_to_prune.append((m, 'weight'))
                 else:
@@ -59,7 +59,7 @@ def prune_model_custom(model, mask_dict, conv1=False):
     print('start unstructured pruning with custom mask')
     for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
-            if name == 'conv1':
+            if 'conv1' in name and 'layer' not in name:
                 if conv1:
                     prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name + '.weight_mask'])
                 else:
@@ -72,7 +72,7 @@ def remove_prune(model, conv1=False):
     print('remove pruning')
     for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
-            if name == 'conv1':
+            if 'conv1' in name and 'layer' not in name:
                 if conv1:
                     prune.remove(m, 'weight')
                 else:
@@ -142,7 +142,7 @@ def check_sparsity(model, use_mask=True, conv1=True):
 
     for module_name, module in model.named_modules():
         if isinstance(module, torch.nn.Conv2d):
-            if 'conv1' in module_name:
+            if 'conv1' in module_name and 'layer' not in module_name:
                 if conv1:
                     module_sum_list, module_zero_sum = check_module_sparsity(module, use_mask=use_mask)
                     sum_list += module_sum_list
