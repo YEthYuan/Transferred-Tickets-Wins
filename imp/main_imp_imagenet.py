@@ -133,7 +133,7 @@ def main_worker(gpu, args):
 
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
-        log.info("Use GPU: {} for training".format(args.gpu))
+        log.info("[INIT] Use GPU: {} for training".format(args.gpu))
 
     # create model with official pretrained weight or random initialization
     print("=> using model '{}'".format(args.arch))
