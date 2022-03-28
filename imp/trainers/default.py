@@ -312,7 +312,7 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
         X = X.cuda()
         y = y.cuda()
 
-        pgd_delta = attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_iters=20, restarts=1)
+        pgd_delta = attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_iters=5, restarts=1)
         # compute output
         output = model(X + pgd_delta)
 
