@@ -31,15 +31,15 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 ############################# required settings ################################
-parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data',
+parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
                     help='path to dataset')
-parser.add_argument('--set', type=str, default='cifar10', help='ImageNet, cifar10, cifar100, svhn')
+parser.add_argument('--set', type=str, default='ImageNet', help='ImageNet, cifar10, cifar100, svhn')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet50)')
-parser.add_argument('--epochs', default=0, type=int, metavar='N',
+parser.add_argument('--epochs', default=10, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('-b', '--batch-size', default=512, type=int,
                     metavar='N',
@@ -49,8 +49,8 @@ parser.add_argument('-b', '--batch-size', default=512, type=int,
 parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--log_dir', default='runs', type=str)
-parser.add_argument('--name', default='debug_runs', type=str, help='experiment name')
-parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_l2_eps3.ckpt',
+parser.add_argument('--name', default='R18_Linf_Eps2', type=str, help='experiment name')
+parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
                     help='path of the pretrained weight')
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
@@ -61,7 +61,7 @@ parser.add_argument('--random', action="store_true", help="using random-init mod
 parser.add_argument("--trainer", type=str, default="default", help="cs, ss, or standard training")
 
 ############################# other settings ################################
-parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
