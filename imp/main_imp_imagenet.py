@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import pathlib
 import random
@@ -48,7 +49,8 @@ parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--log_dir', default='runs', type=str)
 parser.add_argument('--name', default='R18_Linf_Eps2', type=str, help='experiment name')
-parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt', help='path of the pretrained weight')
+parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
+                    help='path of the pretrained weight')
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
 parser.add_argument('--percent', default=0.2, type=float, help='pruning rate for each iteration')
@@ -115,15 +117,27 @@ def main_worker(gpu, args):
     run_base_dir, ckpt_base_dir, log_base_dir = get_directories(args)
     args.ckpt_base_dir = ckpt_base_dir
     os.makedirs(args.ckpt_base_dir, exist_ok=True)
-    logger = open(os.path.join(log_base_dir, "log.txt"), "a+")
+
+    log = logging.getLogger(__name__)
+    log_path = os.path.join(run_base_dir, 'log.txt')
+    handlers = [logging.FileHandler(log_path, mode='a+'),
+                logging.StreamHandler()]
+    logging.basicConfig(
+        format='[%(asctime)s] - %(message)s',
+        datefmt='%Y/%m/%d %H:%M:%S',
+        level=logging.INFO,
+        handlers=handlers)
+    log.info(args)
 
     args.gpu = gpu
 
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
+        log.info("Use GPU: {} for training".format(args.gpu))
 
     # create model with official pretrained weight or random initialization
     print("=> using model '{}'".format(args.arch))
+    log.info("[INIT] => using model '{}'".format(args.arch))
     model = models.__dict__[args.arch](pretrained=(not args.random))
     if_pruned = False
 
@@ -131,7 +145,9 @@ def main_worker(gpu, args):
 
     # if model-path is not none, load the pretrained weight from this path
     if args.model_path:
+        log.info("Loading pretrained weights")
         print("=> loading checkpoint '{}'".format(args.model_path))
+        log.info("[LOAD] => loading checkpoint '{}'".format(args.model_path))
         checkpoint = torch.load(args.model_path)
 
         # Makes us able to load models saved with legacy versions
@@ -145,7 +161,7 @@ def main_worker(gpu, args):
         from collections import OrderedDict
         new_state_dict = OrderedDict()
         sd = checkpoint['model']
-        for k,v in sd.items():
+        for k, v in sd.items():
             if 'attacker' in k:
                 break
             if 'normalize' not in k:
@@ -153,11 +169,13 @@ def main_worker(gpu, args):
                 new_state_dict[name] = v
         model.load_state_dict(new_state_dict)
         print("=> loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
+        log.info("[LOAD] => loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
 
     # init pretrianed weight 
     ticket_init_weight = copy.deepcopy(model.state_dict())
 
     print('dataparallel mode')
+    log.info("[INIT] dataparallel mode")
     model = torch.nn.DataParallel(model).cuda()
 
     # define loss function (criterion) and optimizer
@@ -168,8 +186,10 @@ def main_worker(gpu, args):
 
     # optionally resume from a checkpoint
     if args.resume:
+        log.info("resume model")
         if os.path.isfile(args.resume):
             print("=> loading checkpoint '{}'".format(args.resume))
+            log.info("[LOAD] => loading checkpoint '{}'".format(args.resume))
             if args.gpu is None:
                 checkpoint = torch.load(args.resume)
             else:
@@ -191,21 +211,23 @@ def main_worker(gpu, args):
             optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (resume from epoch {})"
                   .format(args.resume, checkpoint['epoch']))
-            logger.write("=> loaded checkpoint '{}' (resume from epoch {})"
-                         .format(args.resume, checkpoint['epoch']))
-            logger.write(f"\n")
+            log.info("[LOAD] => loaded checkpoint '{}' (resume from epoch {})"
+                     .format(args.resume, checkpoint['epoch']))
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
+            log.info("[ERROR] => no checkpoint found at '{}'".format(args.resume))
 
-    save_checkpoint({
+    path = save_checkpoint({
         'state_dict': model.state_dict(),
     }, False, checkpoint=args.ckpt_base_dir, filename="weight_init.pth.tar")
+    log.info(f"[CKPT] Initial Weight Checkpoint saved at directory: {path}")
 
     cudnn.benchmark = True
 
     # Data loading code
     traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
+    log.info(f"[INIT] train data dir {traindir}, val data dir {valdir}")
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
@@ -239,6 +261,8 @@ def main_worker(gpu, args):
         adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer)
         print("Evaluation result: ")
         print(f"Natural Acc1: {nat_acc1}, Natural Acc5: {nat_acc5}, Robust Acc1: {adv_acc1}, Robust Acc5: {adv_acc5}")
+        log.info(
+            f"[EVAL] Natural Acc1: {nat_acc1}, Natural Acc5: {nat_acc5}, Robust Acc1: {adv_acc1}, Robust Acc5: {adv_acc5}")
         return
 
     for prun_iter in range(args.start_state, args.states):
@@ -247,23 +271,32 @@ def main_worker(gpu, args):
             cur_sparsity = round(cur_sparsity, 2)
         else:
             cur_sparsity = 100.00
+        log.info("=" * 50)
+        log.info(f"[TRAIN] State {prun_iter} start, current sparsity: {cur_sparsity}")
 
         if args.start_epoch == 0:
             # the best record of the current pruning state
             best_acc1 = 0.0
             best_epoch = 0
             natural_acc1_at_best_robustness = 0.0
+            log.info("[INIT] Resume all records to zero")
 
         for epoch in range(args.start_epoch, args.epochs):
+            log.info("-" * 50)
             print(optimizer.state_dict()['param_groups'][0]['lr'])
+            log.info(
+                f"[TRAIN] State {prun_iter} Epoch {epoch} start, sparsity {cur_sparsity}, lr {optimizer.state_dict()['param_groups'][0]['lr']}")
             # train for one epoch
             train_acc1, train_acc5 = train(train_loader, model, criterion, optimizer, epoch, args, writer)
+            log.info("[TRAIN] Train done! Train@1: %.2f, Train@5: %.2f", train_acc1, train_acc5)
 
             # evaluate on validation set
             nat_acc1, nat_acc5 = validate(val_loader, model, criterion, args, writer)
+            log.info("[EVAL] Natural eval done! Nat@1: %.2f, Nat@5: %.2f", nat_acc1, nat_acc5)
 
             # evaluate on adversary validation set
             adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer)
+            log.info("[EVAL] Robust eval done! Adv@1: %.2f, Adv@5: %.2f", adv_acc1, adv_acc5)
 
             # remember best acc@1 and save checkpoint
             is_best = adv_acc1 > best_acc1
@@ -272,13 +305,17 @@ def main_worker(gpu, args):
             if is_best:
                 best_epoch = epoch + 1
                 natural_acc1_at_best_robustness = nat_acc1
+                log.info("[EVAL] ***** This is the best epoch so far ***** ")
+
+            log.info("[EVAL] Best Accuracy: %.2f at epoch %d, Nat@1 at best robustness: %.2f", best_acc1, best_epoch,
+                     natural_acc1_at_best_robustness)
 
             if if_pruned:
                 mask_dict = extract_mask(model.state_dict())
             else:
                 mask_dict = None
 
-            save_checkpoint({
+            path = save_checkpoint({
                 'epoch': epoch + 1,
                 'state': prun_iter,
                 'arch': args.arch,
@@ -291,10 +328,15 @@ def main_worker(gpu, args):
                 'init_weight': ticket_init_weight
             }, is_best, checkpoint=args.ckpt_base_dir,
                 best_name='sparsity_' + str(cur_sparsity) + '_model_best.pth.tar')
+            log.info(f"[CKPT] Checkpoint saved at directory: {path}")
+            if is_best:
+                log.info("[CKPT] This is the best record, copied to the best checkpoint. ")
 
-            logger.write(
-                f"State {prun_iter} Epoch {epoch}: Adv@1: {adv_acc1}, Nat@1: {nat_acc1}, Train@1: {train_acc1}, BestEp: {best_epoch - 1}, BestAdv@1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}\n")
+            log.info(
+                f"State {prun_iter} Epoch {epoch}: Adv@1: {adv_acc1}, Nat@1: {nat_acc1}, Train@1: {train_acc1}, BestEp: {best_epoch}, BestAdv@1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}")
 
+        log.info("~" * 50)
+        log.info(f"[PRUNE] State {prun_iter} pruning start! ")
         before_sp = check_sparsity(model.module, use_mask=False, conv1=False)
 
         # start pruning 
@@ -317,30 +359,35 @@ def main_worker(gpu, args):
         else:
             cur_sparsity = 100.00
 
-        save_checkpoint({
+        log.info("[PRUNE] Pruning Done! Sparsity %.2f --> %.2f", before_sp, cur_sparsity)
+        log.info("[EVAL] Ticket eval: Adv@1: %.2f, Adv@5: %.2f", state_val1, state_val5)
+
+        path = save_checkpoint({
             'mask': current_mask,
         }, False, checkpoint=args.ckpt_base_dir, filename=f"mask_state{prun_iter}_sp{cur_sparsity}.pth.tar")
+        log.info(f"[CKPT] Mask saved at directory: {path}")
 
         print("*" * 50)
-        logger.write("*" * 50 + f"\n")
+        log.info("*" * 50)
         print(f"State {prun_iter} report: ")
-        logger.write(f"State {prun_iter} report: \n")
+        log.info(f"State {prun_iter} report: ")
         print(f'Training: best acc1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}, best epoch: {best_epoch}')
-        logger.write(
-            f'Training: best acc1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}, best epoch: {best_epoch}\n')
+        log.info(
+            f'Training: best acc1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}, best epoch: {best_epoch}')
         print(f"Pruning: Sparsity before: {before_sp}, Sparsity after: {cur_sparsity}")
-        logger.write(f"Pruning: Sparsity before: {before_sp}, Sparsity after: {cur_sparsity}\n")
+        log.info(f"Pruning: Sparsity before: {before_sp}, Sparsity after: {cur_sparsity}")
         print(f"Evaluation: Adv@1: {state_val1}, Adv@5: {state_val5}")
-        logger.write(f"Evaluation: Adv@1: {state_val1}, Adv@5: {state_val5}\n")
+        log.info(f"Evaluation: Adv@1: {state_val1}, Adv@5: {state_val5}")
 
         args.start_epoch = 0
         optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                     momentum=args.momentum,
                                     weight_decay=args.weight_decay)
 
-    save_checkpoint({
+    path = save_checkpoint({
         'state_dict': model.state_dict(),
     }, False, checkpoint=args.ckpt_base_dir, filename="weight_latest.pth.tar")
+    log.info(f"[CKPT] Latest model saved at directory: {path}")
 
 
 # def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -436,8 +483,13 @@ def main_worker(gpu, args):
 def save_checkpoint(state, is_best, checkpoint, filename='checkpoint.pth.tar', best_name='model_best.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
+
     if is_best:
-        shutil.copyfile(filepath, os.path.join(checkpoint, best_name))
+        bestpath = os.path.join(checkpoint, best_name)
+        shutil.copyfile(filepath, bestpath)
+        return bestpath
+
+    return filepath
 
 
 class AverageMeter(object):
