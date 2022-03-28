@@ -82,7 +82,7 @@ parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
 
 # Adv params
-parser.add_argument('--attack_type', default='fgsm-rs', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
+parser.add_argument('--attack_type', default='None', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
 parser.add_argument('--epsilon', default=2, type=int)
 parser.add_argument('--alpha', default=2.5, type=float, help='Step size')
 parser.add_argument('--attack_iters', default=1, type=int, help='Attack iterations')
@@ -114,6 +114,9 @@ def main_worker(gpu, args):
     best_acc1 = 0.0
     best_epoch = 0
     natural_acc1_at_best_robustness = 0.0
+
+    if args.pytorch_pretrained:
+        args.model_path = None
 
     run_base_dir, ckpt_base_dir, log_base_dir = get_directories(args)
     args.ckpt_base_dir = ckpt_base_dir
@@ -162,6 +165,8 @@ def main_worker(gpu, args):
         model.load_state_dict(new_state_dict)
         print("=> loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
         log.info("[LOAD] => loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
+    else:
+        log.info("[LOAD] => Pytorch natural pretrained model")
 
     if args.set != 'ImageNet':
         num_ftrs = model.fc.in_features
@@ -227,7 +232,10 @@ def main_worker(gpu, args):
 
     if args.evaluate:
         nat_acc1, nat_acc5 = validate(val_loader, model, criterion, args, writer)
-        adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer)
+        if args.attack_type is not 'None':
+            adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer)
+        else:
+            adv_acc1, adv_acc5 = -1, -1
         print("Evaluation result: ")
         print("Natural Acc1: %.2f, Natural Acc5: %.2f, Robust Acc1: %.2f, Robust Acc5: %.2f", nat_acc1, nat_acc5,
               adv_acc1, adv_acc5)
@@ -264,17 +272,27 @@ def main_worker(gpu, args):
             nat_acc1, nat_acc5 = validate(val_loader, model, criterion, args, writer, epoch)
             log.info("[EVAL] Natural eval done! Nat@1: %.2f, Nat@5: %.2f", nat_acc1, nat_acc5)
 
-            # evaluate on adversary validation set
-            adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer, epoch)
-            log.info("[EVAL] Robust eval done! Adv@1: %.2f, Adv@5: %.2f", adv_acc1, adv_acc5)
+            if args.attack_type is not 'None':
+                # evaluate on adversary validation set
+                adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer, epoch)
+                log.info("[EVAL] Robust eval done! Adv@1: %.2f, Adv@5: %.2f", adv_acc1, adv_acc5)
+            else:
+                adv_acc1, adv_acc5 = -1, -1
 
             # remember best acc@1 and save checkpoint
-            is_best = adv_acc1 > best_acc1
-            best_acc1 = max(adv_acc1, best_acc1)
+            if args.attack_type is not 'None':
+                is_best = adv_acc1 > best_acc1
+                best_acc1 = max(adv_acc1, best_acc1)
+            else:
+                is_best = nat_acc1 > best_acc1
+                best_acc1 = max(nat_acc1, best_acc1)
 
             if is_best:
                 best_epoch = epoch + 1
-                natural_acc1_at_best_robustness = nat_acc1
+                if args.attack_type is not 'None':
+                    natural_acc1_at_best_robustness = nat_acc1
+                else:
+                    natural_acc1_at_best_robustness = -1
                 log.info("[EVAL] ***** This is the best epoch so far ***** ")
 
             log.info("[EVAL] Best Accuracy: %.2f at epoch %d, Nat@1 at best robustness: %.2f", best_acc1, best_epoch,
@@ -326,7 +344,10 @@ def main_worker(gpu, args):
 
         prune_model_custom(model.module, current_mask, conv1=False)
         state_nat1, state_nat5 = validate(val_loader, model, criterion, args, writer, args.epochs)
-        state_val1, state_val5 = validate_adv(val_loader, model, criterion, args, writer, args.epochs)
+        if args.attack_type is not 'None':
+            state_val1, state_val5 = validate_adv(val_loader, model, criterion, args, writer, args.epochs)
+        else:
+            state_val1, state_val5 = -1, -1
 
         cur_sparsity = check_sparsity(model.module, use_mask=True, conv1=False)
         if cur_sparsity:
@@ -336,7 +357,8 @@ def main_worker(gpu, args):
 
         log.info("[PRUNE] Pruning Done! Sparsity %.2f --> %.2f", before_sp, cur_sparsity)
         log.info("[EVAL] Ticket eval: Nat@1: %.2f, Nat@5: %.2f", state_nat1, state_nat5)
-        log.info("[EVAL] Ticket eval: Adv@1: %.2f, Adv@5: %.2f", state_val1, state_val5)
+        if args.attack_type is not 'None':
+            log.info("[EVAL] Ticket eval: Adv@1: %.2f, Adv@5: %.2f", state_val1, state_val5)
 
         path = save_checkpoint({
             'mask': current_mask,
