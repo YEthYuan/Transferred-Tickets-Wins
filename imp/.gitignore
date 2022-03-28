@@ -1,4 +1,2 @@
 runs/
-*.txt
-*.sh
 __pycache__

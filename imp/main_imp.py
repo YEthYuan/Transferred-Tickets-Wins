@@ -20,8 +20,10 @@ import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torchvision.models as models
 from torch.utils.tensorboard import SummaryWriter
+from collections import OrderedDict
 
 from pruning_utils import *
+from dataset import *
 
 model_names = sorted(name for name in models.__dict__
                      if name.islower() and not name.startswith("__")
@@ -29,16 +31,15 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 ############################# required settings ################################
-parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
+parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data',
                     help='path to dataset')
-parser.add_argument('--set', type=str, default='ImageNet')
-
+parser.add_argument('--set', type=str, default='cifar10', help='ImageNet, cifar10, cifar100, svhn')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet50)')
-parser.add_argument('--epochs', default=10, type=int, metavar='N',
+parser.add_argument('--epochs', default=0, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('-b', '--batch-size', default=512, type=int,
                     metavar='N',
@@ -48,8 +49,8 @@ parser.add_argument('-b', '--batch-size', default=512, type=int,
 parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--log_dir', default='runs', type=str)
-parser.add_argument('--name', default='R18_Linf_Eps2', type=str, help='experiment name')
-parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
+parser.add_argument('--name', default='debug_runs', type=str, help='experiment name')
+parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_l2_eps3.ckpt',
                     help='path of the pretrained weight')
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
@@ -60,7 +61,7 @@ parser.add_argument('--random', action="store_true", help="using random-init mod
 parser.add_argument("--trainer", type=str, default="default", help="cs, ss, or standard training")
 
 ############################# other settings ################################
-parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -136,9 +137,9 @@ def main_worker(gpu, args):
         log.info("[INIT] Use GPU: {} for training".format(args.gpu))
 
     # create model with official pretrained weight or random initialization
-    print("=> using model '{}'".format(args.arch))
-    log.info("[INIT] => using model '{}'".format(args.arch))
-    model = models.__dict__[args.arch](pretrained=(not args.random))
+    print("=> using model '{}', dataset '{}'".format(args.arch, args.set))
+    log.info("[INIT] => using model '{}', dataset '{}'".format(args.arch, args.set))
+    model, train_loader, val_loader = get_model_dataset(args)
     if_pruned = False
 
     writer = SummaryWriter(log_dir=log_base_dir)
@@ -150,15 +151,6 @@ def main_worker(gpu, args):
         log.info("[LOAD] => loading checkpoint '{}'".format(args.model_path))
         checkpoint = torch.load(args.model_path)
 
-        # Makes us able to load models saved with legacy versions
-        state_dict_path = 'model'
-        if not ('model' in checkpoint):
-            state_dict_path = 'state_dict'
-
-        # sd = checkpoint[state_dict_path]
-        # sd = {k[len('module.'):]: v for k, v in sd.items()}
-        # model.load_state_dict(sd)
-        from collections import OrderedDict
         new_state_dict = OrderedDict()
         sd = checkpoint['model']
         for k, v in sd.items():
@@ -170,6 +162,10 @@ def main_worker(gpu, args):
         model.load_state_dict(new_state_dict)
         print("=> loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
         log.info("[LOAD] => loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
+
+    if args.set != 'ImageNet':
+        num_ftrs = model.fc.in_features
+        model.fc = nn.Linear(num_ftrs, args.classes)
 
     # init pretrianed weight 
     ticket_init_weight = copy.deepcopy(model.state_dict())
@@ -217,61 +213,35 @@ def main_worker(gpu, args):
             print("=> no checkpoint found at '{}'".format(args.resume))
             log.info("[ERROR] => no checkpoint found at '{}'".format(args.resume))
 
-    path = save_checkpoint({
-        'state_dict': model.state_dict(),
-    }, False, checkpoint=args.ckpt_base_dir, filename="weight_init.pth.tar")
-    log.info(f"[CKPT] Initial Weight Checkpoint saved at directory: {path}")
+    else:
+        path = save_checkpoint({
+            'state_dict': model.state_dict(),
+        }, False, checkpoint=args.ckpt_base_dir, filename="weight_init.pth.tar")
+        log.info(f"[CKPT] Initial Weight Checkpoint saved at directory: {path}")
 
     cudnn.benchmark = True
 
-    # Data loading code
-    traindir = os.path.join(args.data, 'train')
-    valdir = os.path.join(args.data, 'val')
-    log.info(f"[INIT] train data dir {traindir}, val data dir {valdir}")
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
-
-    train_dataset = datasets.ImageFolder(
-        traindir,
-        transforms.Compose([
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ]))
-
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True, sampler=None)
-
-    val_loader = torch.utils.data.DataLoader(
-        datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
-
     train, validate, validate_adv, modifier = get_trainer(args)
+    print("=> Attack type '{}'".format(args.attack_type))
+    log.info("[INIT] => Attack type '{}'".format(args.attack_type))
 
     if args.evaluate:
         nat_acc1, nat_acc5 = validate(val_loader, model, criterion, args, writer)
         adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer)
         print("Evaluation result: ")
-        print(f"Natural Acc1: {nat_acc1}, Natural Acc5: {nat_acc5}, Robust Acc1: {adv_acc1}, Robust Acc5: {adv_acc5}")
-        log.info(
-            f"[EVAL] Natural Acc1: {nat_acc1}, Natural Acc5: {nat_acc5}, Robust Acc1: {adv_acc1}, Robust Acc5: {adv_acc5}")
+        print("Natural Acc1: %.2f, Natural Acc5: %.2f, Robust Acc1: %.2f, Robust Acc5: %.2f", nat_acc1, nat_acc5,
+              adv_acc1, adv_acc5)
+        log.info("Natural Acc1: %.2f, Natural Acc5: %.2f, Robust Acc1: %.2f, Robust Acc5: %.2f", nat_acc1, nat_acc5,
+                 adv_acc1, adv_acc5)
         return
 
     for prun_iter in range(args.start_state, args.states):
-        cur_sparsity = check_sparsity(model.module, use_mask=False, conv1=False)
+        cur_sparsity = check_sparsity(model.module, use_mask=True, conv1=False)
         if cur_sparsity:
             cur_sparsity = round(cur_sparsity, 2)
         else:
             cur_sparsity = 100.00
-        log.info("=" * 50)
+        log.info("=" * 150)
         log.info(f"[TRAIN] State {prun_iter} start, current sparsity: {cur_sparsity}")
 
         if args.start_epoch == 0:
@@ -282,7 +252,7 @@ def main_worker(gpu, args):
             log.info("[INIT] Resume all records to zero")
 
         for epoch in range(args.start_epoch, args.epochs):
-            log.info("-" * 50)
+            log.info("-" * 150)
             print(optimizer.state_dict()['param_groups'][0]['lr'])
             log.info(
                 f"[TRAIN] State {prun_iter} Epoch {epoch} start, sparsity {cur_sparsity}, lr {optimizer.state_dict()['param_groups'][0]['lr']}")
@@ -291,11 +261,11 @@ def main_worker(gpu, args):
             log.info("[TRAIN] Train done! Train@1: %.2f, Train@5: %.2f", train_acc1, train_acc5)
 
             # evaluate on validation set
-            nat_acc1, nat_acc5 = validate(val_loader, model, criterion, args, writer)
+            nat_acc1, nat_acc5 = validate(val_loader, model, criterion, args, writer, epoch)
             log.info("[EVAL] Natural eval done! Nat@1: %.2f, Nat@5: %.2f", nat_acc1, nat_acc5)
 
             # evaluate on adversary validation set
-            adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer)
+            adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer, epoch)
             log.info("[EVAL] Robust eval done! Adv@1: %.2f, Adv@5: %.2f", adv_acc1, adv_acc5)
 
             # remember best acc@1 and save checkpoint
@@ -326,18 +296,22 @@ def main_worker(gpu, args):
                 'optimizer': optimizer.state_dict(),
                 'if_pruned': if_pruned,
                 'init_weight': ticket_init_weight
-            }, is_best, checkpoint=args.ckpt_base_dir,
+            }, is_best=False, checkpoint=args.ckpt_base_dir,
                 best_name='sparsity_' + str(cur_sparsity) + '_model_best.pth.tar')
             log.info(f"[CKPT] Checkpoint saved at directory: {path}")
-            if is_best:
-                log.info("[CKPT] This is the best record, copied to the best checkpoint. ")
+            # if is_best:
+            #     log.info("[CKPT] This is the best record, copied to the best checkpoint. ")
 
             log.info(
                 f"State {prun_iter} Epoch {epoch}: Adv@1: {adv_acc1}, Nat@1: {nat_acc1}, Train@1: {train_acc1}, BestEp: {best_epoch}, BestAdv@1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}")
 
-        log.info("~" * 50)
+        log.info("~" * 150)
         log.info(f"[PRUNE] State {prun_iter} pruning start! ")
-        before_sp = check_sparsity(model.module, use_mask=False, conv1=False)
+        before_sp = check_sparsity(model.module, use_mask=True, conv1=False)
+        if before_sp:
+            before_sp = round(before_sp, 2)
+        else:
+            before_sp = 100.00
 
         # start pruning 
         print('start pruning model')
@@ -351,15 +325,17 @@ def main_worker(gpu, args):
         model.module.load_state_dict(ticket_init_weight)
 
         prune_model_custom(model.module, current_mask, conv1=False)
-        state_val1, state_val5 = validate_adv(val_loader, model, criterion, args, writer)
+        state_nat1, state_nat5 = validate(val_loader, model, criterion, args, writer, args.epochs)
+        state_val1, state_val5 = validate_adv(val_loader, model, criterion, args, writer, args.epochs)
 
-        cur_sparsity = check_sparsity(model.module, use_mask=False, conv1=False)
+        cur_sparsity = check_sparsity(model.module, use_mask=True, conv1=False)
         if cur_sparsity:
             cur_sparsity = round(cur_sparsity, 2)
         else:
             cur_sparsity = 100.00
 
         log.info("[PRUNE] Pruning Done! Sparsity %.2f --> %.2f", before_sp, cur_sparsity)
+        log.info("[EVAL] Ticket eval: Nat@1: %.2f, Nat@5: %.2f", state_nat1, state_nat5)
         log.info("[EVAL] Ticket eval: Adv@1: %.2f, Adv@5: %.2f", state_val1, state_val5)
 
         path = save_checkpoint({
@@ -367,8 +343,8 @@ def main_worker(gpu, args):
         }, False, checkpoint=args.ckpt_base_dir, filename=f"mask_state{prun_iter}_sp{cur_sparsity}.pth.tar")
         log.info(f"[CKPT] Mask saved at directory: {path}")
 
-        print("*" * 50)
-        log.info("*" * 50)
+        print("*" * 150)
+        log.info("*" * 150)
         print(f"State {prun_iter} report: ")
         log.info(f"State {prun_iter} report: ")
         print(f'Training: best acc1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}, best epoch: {best_epoch}')
@@ -384,101 +360,6 @@ def main_worker(gpu, args):
                                     momentum=args.momentum,
                                     weight_decay=args.weight_decay)
 
-    path = save_checkpoint({
-        'state_dict': model.state_dict(),
-    }, False, checkpoint=args.ckpt_base_dir, filename="weight_latest.pth.tar")
-    log.info(f"[CKPT] Latest model saved at directory: {path}")
-
-
-# def train(train_loader, model, criterion, optimizer, epoch, args):
-#     batch_time = AverageMeter('Time', ':6.3f')
-#     data_time = AverageMeter('Data', ':6.3f')
-#     losses = AverageMeter('Loss', ':.4e')
-#     top1 = AverageMeter('Acc@1', ':6.2f')
-#     top5 = AverageMeter('Acc@5', ':6.2f')
-#     progress = ProgressMeter(
-#         len(train_loader),
-#         [batch_time, data_time, losses, top1, top5],
-#         prefix="Epoch: [{}]".format(epoch))
-#
-#     # switch to train mode
-#     model.train()
-#
-#     end = time.time()
-#     for i, (images, target) in enumerate(train_loader):
-#         # measure data loading time
-#         data_time.update(time.time() - end)
-#
-#         if args.gpu is not None:
-#             images = images.cuda(args.gpu, non_blocking=True)
-#         target = target.cuda(args.gpu, non_blocking=True)
-#
-#         # compute output
-#         output = model(images)
-#         loss = criterion(output, target)
-#
-#         # measure accuracy and record loss
-#         acc1, acc5 = accuracy(output, target, topk=(1, 5))
-#         losses.update(loss.item(), images.size(0))
-#         top1.update(acc1[0], images.size(0))
-#         top5.update(acc5[0], images.size(0))
-#
-#         # compute gradient and do SGD step
-#         optimizer.zero_grad()
-#         loss.backward()
-#         optimizer.step()
-#
-#         # measure elapsed time
-#         batch_time.update(time.time() - end)
-#         end = time.time()
-#
-#         if i % args.print_freq == 0:
-#             progress.display(i)
-#
-#
-# def validate(val_loader, model, criterion, args):
-#     batch_time = AverageMeter('Time', ':6.3f')
-#     losses = AverageMeter('Loss', ':.4e')
-#     top1 = AverageMeter('Acc@1', ':6.2f')
-#     top5 = AverageMeter('Acc@5', ':6.2f')
-#     progress = ProgressMeter(
-#         len(val_loader),
-#         [batch_time, losses, top1, top5],
-#         prefix='Test: ')
-#
-#     # switch to evaluate mode
-#     model.eval()
-#
-#     with torch.no_grad():
-#         end = time.time()
-#         for i, (images, target) in enumerate(val_loader):
-#             if args.gpu is not None:
-#                 images = images.cuda(args.gpu, non_blocking=True)
-#             target = target.cuda(args.gpu, non_blocking=True)
-#
-#             # compute output
-#             output = model(images)
-#             loss = criterion(output, target)
-#
-#             # measure accuracy and record loss
-#             acc1, acc5 = accuracy(output, target, topk=(1, 5))
-#             losses.update(loss.item(), images.size(0))
-#             top1.update(acc1[0], images.size(0))
-#             top5.update(acc5[0], images.size(0))
-#
-#             # measure elapsed time
-#             batch_time.update(time.time() - end)
-#             end = time.time()
-#
-#             if i % args.print_freq == 0:
-#                 progress.display(i)
-#
-#         # TODO: this should also be done with the ProgressMeter
-#         print(' * Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'
-#               .format(top1=top1, top5=top5))
-#
-#     return top1.avg
-
 
 def save_checkpoint(state, is_best, checkpoint, filename='checkpoint.pth.tar', best_name='model_best.pth.tar'):
     filepath = os.path.join(checkpoint, filename)
@@ -490,65 +371,6 @@ def save_checkpoint(state, is_best, checkpoint, filename='checkpoint.pth.tar', b
         return bestpath
 
     return filepath
-
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-
-    def __init__(self, name, fmt=':f'):
-        self.name = name
-        self.fmt = fmt
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-    def __str__(self):
-        fmtstr = '{name} {val' + self.fmt + '} ({avg' + self.fmt + '})'
-        return fmtstr.format(**self.__dict__)
-
-
-class ProgressMeter(object):
-    def __init__(self, num_batches, meters, prefix=""):
-        self.batch_fmtstr = self._get_batch_fmtstr(num_batches)
-        self.meters = meters
-        self.prefix = prefix
-
-    def display(self, batch):
-        entries = [self.prefix + self.batch_fmtstr.format(batch)]
-        entries += [str(meter) for meter in self.meters]
-        print('\t'.join(entries))
-
-    def _get_batch_fmtstr(self, num_batches):
-        num_digits = len(str(num_batches // 1))
-        fmt = '{:' + str(num_digits) + 'd}'
-        return '[' + fmt + '/' + fmt.format(num_batches) + ']'
-
-
-def accuracy(output, target, topk=(1,)):
-    """Computes the accuracy over the k top predictions for the specified values of k"""
-    with torch.no_grad():
-        maxk = max(topk)
-        batch_size = target.size(0)
-
-        _, pred = output.topk(maxk, 1, True, True)
-        pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-        res = []
-        for k in topk:
-            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul_(100.0 / batch_size))
-        return res
 
 
 def get_trainer(args):
@@ -594,6 +416,32 @@ def get_directories(args):
     (run_base_dir / "settings.txt").write_text(str(args))
 
     return run_base_dir, ckpt_base_dir, log_base_dir
+
+
+def get_model_dataset(args):
+    # prepare dataset
+    if args.set == 'cifar10':
+        args.classes = 10
+        train_loader, _, test_loader = cifar10_dataloaders(args, use_val=False)
+    elif args.set == 'cifar100':
+        args.classes = 100
+        train_loader, _, test_loader = cifar100_dataloaders(args, use_val=False)
+    elif args.set == 'svhn':
+        args.classes = 10
+        train_loader, _, test_loader = svhn_dataloaders(args, use_val=False)
+    elif args.set == 'fmnist':
+        args.classes = 10
+        train_loader, _, test_loader = fashionmnist_dataloaders(args, use_val=False)
+    elif args.set == 'ImageNet':
+        args.classes = 1000
+        train_loader, _, test_loader = imagenet_dataloaders(args, use_val=False)
+    else:
+        raise ValueError("Unknown Dataset")
+
+    # prepare model
+    model = models.__dict__[args.arch](pretrained=(not args.random))
+
+    return model, train_loader, test_loader
 
 
 if __name__ == '__main__':

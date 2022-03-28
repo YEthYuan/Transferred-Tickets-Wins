@@ -187,4 +187,3 @@ def WideResNet101_2(pretrained=False, num_classes=1000):
     return ResNet(
         get_builder(), Bottleneck, [3, 4, 23, 3], num_classes=num_classes, base_width=64 * 2
     )
-

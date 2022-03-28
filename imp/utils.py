@@ -21,16 +21,16 @@ def setup_model_dataset(args):
     #prepare dataset
     if args.dataset == 'cifar10':
         classes = 10
-        train_loader, val_loader, test_loader = cifar10_dataloaders(batch_size= args.batch_size, data_dir =args.data)
+        train_loader, val_loader, test_loader = cifar10_dataloaders(args)
     elif args.dataset == 'cifar100':
         classes = 100
-        train_loader, val_loader, test_loader = cifar100_dataloaders(batch_size= args.batch_size, data_dir =args.data)
+        train_loader, val_loader, test_loader = cifar100_dataloaders(args)
     elif args.dataset == 'svhn':
         classes = 10
-        train_loader, val_loader, test_loader = svhn_dataloaders(batch_size= args.batch_size, data_dir =args.data)
+        train_loader, val_loader, test_loader = svhn_dataloaders(args)
     elif args.dataset == 'fmnist':
         classes = 10
-        train_loader, val_loader, test_loader = fashionmnist_dataloaders(batch_size= args.batch_size, data_dir =args.data)
+        train_loader, val_loader, test_loader = fashionmnist_dataloaders(args)
     else:
         raise ValueError("Unknown Dataset")
 
