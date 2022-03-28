@@ -321,7 +321,7 @@ def main_worker(gpu, args):
             #     log.info("[CKPT] This is the best record, copied to the best checkpoint. ")
 
             log.info(
-                f"State {prun_iter} Epoch {epoch}: Adv@1: {adv_acc1}, Nat@1: {nat_acc1}, Train@1: {train_acc1}, BestEp: {best_epoch}, BestAdv@1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}")
+                f"State {prun_iter} Epoch {epoch}: Adv@1: {adv_acc1:.2f}, Nat@1: {nat_acc1:.2f}, Train@1: {train_acc1:.2f}, BestEp: {best_epoch}, BestAdv@1: {best_acc1:.2f}, NAABR: {natural_acc1_at_best_robustness:.2f}")
 
         log.info("~" * 150)
         log.info(f"[PRUNE] State {prun_iter} pruning start! ")
@@ -369,13 +369,13 @@ def main_worker(gpu, args):
         log.info("*" * 150)
         print(f"State {prun_iter} report: ")
         log.info(f"State {prun_iter} report: ")
-        print(f'Training: best acc1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}, best epoch: {best_epoch}')
+        print(f'Training: best acc1: {best_acc1:.2f}, NAABR: {natural_acc1_at_best_robustness:.2f}, best epoch: {best_epoch}')
         log.info(
-            f'Training: best acc1: {best_acc1}, NAABR: {natural_acc1_at_best_robustness}, best epoch: {best_epoch}')
-        print(f"Pruning: Sparsity before: {before_sp}, Sparsity after: {cur_sparsity}")
-        log.info(f"Pruning: Sparsity before: {before_sp}, Sparsity after: {cur_sparsity}")
-        print(f"Evaluation: Adv@1: {state_val1}, Adv@5: {state_val5}")
-        log.info(f"Evaluation: Adv@1: {state_val1}, Adv@5: {state_val5}")
+            f'Training: best acc1: {best_acc1:.2f}, NAABR: {natural_acc1_at_best_robustness:.2f}, best epoch: {best_epoch}')
+        print(f"Pruning: Sparsity before: {before_sp:.2f}, Sparsity after: {cur_sparsity:.2f}")
+        log.info(f"Pruning: Sparsity before: {before_sp:.2f}, Sparsity after: {cur_sparsity:.2f}")
+        print(f"Evaluation: Adv@1: {state_val1:.2f}, Adv@5: {state_val5:.2f}")
+        log.info(f"Evaluation: Adv@1: {state_val1:.2f}, Adv@5: {state_val5:.2f}")
 
         args.start_epoch = 0
         optimizer = torch.optim.SGD(model.parameters(), args.lr,
