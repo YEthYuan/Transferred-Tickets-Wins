@@ -58,15 +58,16 @@ parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--decreasing_lr', default='50,100', help='decreasing strategy')
 parser.add_argument('--log_dir', default='runs', type=str)
-parser.add_argument('--name', default='R18_Linf_Eps2_s80_c10', type=str, help='experiment name')
-parser.add_argument('--weight_dir', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
+parser.add_argument('--name', default='R18_inf2_s80_c10', type=str, help='experiment name')
+parser.add_argument('--weight_dir', type=str, default='/home/yuanye/RST/imp/tickets/R18_inf2/weight_init.pth.tar',
                     help='path of the pretrained weight')
-parser.add_argument('--mask_dir', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
+parser.add_argument('--mask_dir', type=str, default='/home/yuanye/RST/imp/tickets/R18_inf2/mask_state0_sp80.0.pth.tar',
                     help='path of the extracted mask')
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained natural weight.')
 parser.add_argument('--random', action="store_true", help="using random-init model")
 parser.add_argument("--trainer", type=str, default="default", help="cs, ss, or standard training")
+parser.add_argument('--attack_type', default='None', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
 
 ############################# other settings ################################
 parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
@@ -84,9 +85,10 @@ parser.add_argument('--resume', default='', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--adv-eval', action='store_true', default=False)
 parser.add_argument('--save-model', action='store_true', help="Save the finetuned model", default=True)
+parser.add_argument('--linear-eval', action='store_true', help="Linear evaluation mode", default=False)
 parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
-parser.add_argument('--seed', default=142, type=int,
+parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training. ')
 parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
@@ -133,6 +135,7 @@ def main_worker(gpu, args):
         handlers=handlers)
     log.info(args)
 
+    args.log = log
     args.gpu = gpu
 
     if args.gpu is not None:
@@ -155,16 +158,14 @@ def main_worker(gpu, args):
         checkpoint = torch.load(args.weight_dir)
 
         new_state_dict = OrderedDict()
-        sd = checkpoint['model']
+        sd = checkpoint['state_dict']
         for k, v in sd.items():
             if 'attacker' in k:
                 break
             if 'normalize' not in k:
-                name = k[len('module.model.'):]
+                name = k[len('module.'):]
                 new_state_dict[name] = v
         model.load_state_dict(new_state_dict)
-        print("=> loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
-        log.info("[LOAD] => loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
     else:
         log.info("[LOAD] => Pytorch natural pretrained model")
 
@@ -189,6 +190,11 @@ def main_worker(gpu, args):
     log.info("[LOAD] => loading mask '{}'".format(args.mask_dir))
     mask = torch.load(args.mask_dir)
     prune_model_custom(model.module, mask['mask'], False)
+
+    # Linear evaluation
+    if args.linear_eval:
+        log.info("[INIT] => Linear Evaluation Mode")
+        freeze_model(log, model.module, 4)
 
     # Get trainer and tester
     train, validate, validate_adv, modifier = get_trainer(args)
@@ -361,6 +367,28 @@ def get_model_dataset(args):
     model = models.__dict__[args.arch](pretrained=(not args.random))
 
     return model, train_loader, test_loader
+
+
+def freeze_model(log, model, freeze_level):
+
+    assert len([name for name, _ in list(model.named_parameters())
+                if f"layer{freeze_level}" in name]), "unknown freeze level (only {1,2,3,4} for ResNets)"
+    update_params = []
+    freeze = True
+    for name, param in model.named_parameters():
+        print(name, param.size())
+
+        if not freeze and f'layer{freeze_level}' not in name:
+            log.info(f"Update {name}")
+            update_params.append(param)
+        else:
+            log.info(f"Freeze {name}")
+            param.requires_grad = False
+
+        if freeze and f'layer{freeze_level}' in name:
+            # if the freeze level is detected stop freezing onwards
+            freeze = False
+    return update_params
 
 
 if __name__ == '__main__':
