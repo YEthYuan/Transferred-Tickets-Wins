@@ -326,9 +326,9 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
         train_prec1, train_loss = _model_loop(args, 'train', train_loader,
                                               model, mask, opt, epoch, args.adv_train, writer)
 
-        prune_model_custom(model, mask, show=False)
-        remove_prune(model, show=False)
-        check_sparsity(model, use_mask=False)
+        prune_model_custom(model, mask, show=False, conv1=args.conv1)
+        remove_prune(model, show=False, conv1=args.conv1)
+        check_sparsity(model, use_mask=False, conv1=args.conv1)
 
         last_epoch = (epoch == (args.epochs - 1))
 
@@ -463,9 +463,9 @@ def _model_loop(args, loop_type, loader, model, mask, opt, epoch, adv, writer):
     iterator = tqdm(enumerate(loader), total=len(loader))
     for i, (inp, target) in iterator:
         # prune the model with the initial mask
-        prune_model_custom(model, mask, show=False)
-        remove_prune(model, show=False)
-        # check_sparsity(model, use_mask=False)
+        prune_model_custom(model, mask, show=False, conv1=args.conv1)
+        remove_prune(model, show=False, conv1=args.conv1)
+        # check_sparsity(model, use_mask=False, conv1=args.conv1)
 
         # measure data loading time
         target = target.cuda(non_blocking=True)
@@ -542,27 +542,23 @@ def _model_loop(args, loop_type, loader, model, mask, opt, epoch, adv, writer):
     return top1.avg, losses.avg
 
 
-def prune_model_custom(model, mask_dict, show=True):
-    if show:
-        print('Pruning with custom mask (all conv layers)')
-    for name, m in model.named_modules():
-        if isinstance(m, nn.Conv2d):
-            mask_name = name + '.weight_mask'
-            if mask_name in mask_dict.keys():
-                prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name + '.weight_mask'])
-            else:
-                print('Can not fing [{}] in mask_dict'.format(mask_name))
-
-
-def check_sparsity(model, use_mask=True, show=True):
+def check_sparsity(model, use_mask=True, conv1=True, show=True):
     sum_list = 0
     zero_sum = 0
 
     for module_name, module in model.named_modules():
         if isinstance(module, ch.nn.Conv2d):
-            module_sum_list, module_zero_sum = check_module_sparsity(module, use_mask=use_mask)
-            sum_list += module_sum_list
-            zero_sum += module_zero_sum
+            if 'conv1' in module_name and 'layer' not in module_name:
+                if conv1:
+                    module_sum_list, module_zero_sum = check_module_sparsity(module, use_mask=use_mask)
+                    sum_list += module_sum_list
+                    zero_sum += module_zero_sum
+                elif show:
+                    print('skip conv1 for sparsity checking')
+            else:
+                module_sum_list, module_zero_sum = check_module_sparsity(module, use_mask=use_mask)
+                sum_list += module_sum_list
+                zero_sum += module_zero_sum
 
     if zero_sum:
         remain_weight_rate = 100 * (1 - zero_sum / sum_list)
@@ -595,9 +591,64 @@ def check_module_sparsity(module, use_mask=True):
     return sum_list, zero_sum
 
 
-def remove_prune(model, show=True):
-    if show:
-        print('Remove hooks for multiplying masks (all conv layers)')
+def pruning_model(model, px, conv1=False, show=True):
+    parameters_to_prune = []
     for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
-            prune.remove(m, 'weight')
+            if 'conv1' in name and 'layer' not in name:
+                if conv1:
+                    parameters_to_prune.append((m, 'weight'))
+                elif show:
+                    print('skip conv1 for L1 unstructure global pruning')
+            else:
+                parameters_to_prune.append((m, 'weight'))
+
+    parameters_to_prune = tuple(parameters_to_prune)
+
+    prune.global_unstructured(
+        parameters_to_prune,
+        pruning_method=prune.L1Unstructured,
+        amount=px,
+    )
+
+
+def prune_model_structural(model, cur_prune_rate, conv1=False, show=True):
+    if show:
+        print('Apply Structured L2 Channel Pruning (all conv layers)')
+    for name, m in model.named_modules():
+        if isinstance(m, nn.Conv2d):
+            if 'conv1' in name and 'layer' not in name:
+                if conv1:
+                    prune.ln_structured(m, name="weight", amount=cur_prune_rate, n=2, dim=0)
+                elif show:
+                    print('skip conv1 for Structured L2 Channel Pruning')
+            else:
+                prune.ln_structured(m, name="weight", amount=cur_prune_rate, n=2, dim=0)
+
+
+def prune_model_custom(model, mask_dict, conv1=False, show=True):
+    if show:
+        print('start unstructured pruning with custom mask')
+    for name, m in model.named_modules():
+        if isinstance(m, nn.Conv2d):
+            if 'conv1' in name and 'layer' not in name:
+                if conv1:
+                    prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name + '.weight_mask'])
+                elif show:
+                    print('skip conv1 for custom pruning')
+            else:
+                prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name + '.weight_mask'])
+
+
+def remove_prune(model, conv1=False, show=True):
+    if show:
+        print('remove pruning')
+    for name, m in model.named_modules():
+        if isinstance(m, nn.Conv2d):
+            if 'conv1' in name and 'layer' not in name:
+                if conv1:
+                    prune.remove(m, 'weight')
+                elif show:
+                    print('skip conv1 for remove pruning')
+            else:
+                prune.remove(m, 'weight')

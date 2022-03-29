@@ -66,11 +66,11 @@ parser.add_argument('--mask_dir', type=str, default='/home/yuanye/RST/imp/ticket
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained natural weight.')
 parser.add_argument('--random', action="store_true", help="using random-init model")
-parser.add_argument("--trainer", type=str, default="default", help="cs, ss, or standard training")
+parser.add_argument("--trainer", type=str, default="tune", help="default / tune")
 parser.add_argument('--attack_type', default='None', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
 
 ############################# other settings ################################
-parser.add_argument('-j', '--workers', default=0, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
@@ -189,7 +189,9 @@ def main_worker(gpu, args):
     print("=> loading mask '{}'".format(args.mask_dir))
     log.info("[LOAD] => loading mask '{}'".format(args.mask_dir))
     mask = torch.load(args.mask_dir)
-    prune_model_custom(model.module, mask['mask'], False)
+    args.mask = mask['mask']
+    prune_model_custom(model.module, args.mask, False)
+    remove_prune(model.module, False)
 
     # Linear evaluation
     if args.linear_eval:
@@ -210,7 +212,7 @@ def main_worker(gpu, args):
     all_result['best_epoch'] = 0
 
     start_epoch = 0
-    mask_sp = check_sparsity(model, use_mask=True, conv1=False)
+    mask_sp = check_sparsity(model.module, use_mask=False, conv1=False)
     log.info(f"[EVAL] Mask Sparsity: {mask_sp:.2f}")
     all_result['sparsity'] = mask_sp
 
@@ -221,18 +223,23 @@ def main_worker(gpu, args):
             f"[TRAIN] Epoch {epoch} start, lr {optimizer.state_dict()['param_groups'][0]['lr']}")
 
         # train for one epoch
-        train_acc1, train_acc5 = train(train_loader, model, criterion, optimizer, epoch, args, writer)
+        train_acc1, train_acc5 = train(train_loader, model.module, criterion, optimizer, epoch, args, writer)
         log.info("[TRAIN] Train done! Train@1: %.2f, Train@5: %.2f", train_acc1, train_acc5)
         all_result['train'].append(train_acc1)
 
+        # Prune the model before evaluation
+        prune_model_custom(model.module, args.mask, False)
+        remove_prune(model.module, False)
+        check_sparsity(model.module, use_mask=False, conv1=False)
+
         # evaluate on validation set
-        nat_acc1, nat_acc5 = validate(val_loader, model, criterion, args, writer, epoch)
+        nat_acc1, nat_acc5 = validate(val_loader, model.module, criterion, args, writer, epoch)
         log.info("[EVAL] Natural eval done! Nat@1: %.2f, Nat@5: %.2f", nat_acc1, nat_acc5)
         all_result['nat_acc'].append(nat_acc1)
 
         if args.adv_eval:
             # evaluate on adversary validation set
-            adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer, epoch)
+            adv_acc1, adv_acc5 = validate_adv(val_loader, model.module, criterion, args, writer, epoch)
             log.info("[EVAL] Robust eval done! Adv@1: %.2f, Adv@5: %.2f", adv_acc1, adv_acc5)
         else:
             adv_acc1, adv_acc5 = -1, -1
@@ -259,7 +266,7 @@ def main_worker(gpu, args):
             save_checkpoint({
                 'result': all_result,
                 'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
+                'state_dict': model.module.state_dict(),
                 'best_acc1': all_result['best_acc1'],
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict()
@@ -282,7 +289,7 @@ def main_worker(gpu, args):
             plt.savefig(os.path.join(log_base_dir, 'robustness.png'))
             plt.close()
 
-    check_sparsity(model, use_mask=True, conv1=False)
+    check_sparsity(model.module, use_mask=False, conv1=False)
     log.info(all_result)
 
 

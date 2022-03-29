@@ -36,8 +36,8 @@ parser.add_argument('--data', type=str, default='/home/yuanye/data')
 parser.add_argument('--out-dir', type=str, default='runs')
 parser.add_argument('--exp-name', type=str, default='test-debug-run')
 parser.add_argument('--arch', type=str, default='resnet18')
-# parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_l2_eps3.ckpt')
-parser.add_argument('--model-path', type=str, default=None)
+parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_l2_eps3.ckpt')
+# parser.add_argument('--model-path', type=str, default=None)
 parser.add_argument('--mask-save-dir', type=str, default=None)
 parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--opt', type=str, default='sgd', help='choose sgd or adam')
@@ -51,7 +51,9 @@ parser.add_argument('--structural_prune', action='store_true',
                     help='Use the structural pruning method (currently channel pruning)')
 parser.add_argument('--adv-train', type=int, default=0)
 parser.add_argument('--adv-eval', type=int, default=0)
-parser.add_argument('--workers', type=int, default=0)
+parser.add_argument('--workers', type=int, default=16)
+parser.add_argument('--conv1', action='store_true',
+                    help="If true, prune the conv1, if false, skip the conv1")
 parser.add_argument('--resume', action='store_true',
                     help='Whether to resume or not (Overrides the one in robustness.defaults)')
 parser.add_argument('--pytorch-pretrained', action='store_true',
@@ -66,7 +68,7 @@ parser.add_argument('--no-tqdm', type=int, default=1,
                     choices=[0, 1], help='Do not use tqdm.')
 parser.add_argument('--no-replace-last-layer', action='store_true',
                     help='Whether to avoid replacing the last layer')
-parser.add_argument('--freeze-level', type=int, default=4,
+parser.add_argument('--freeze-level', type=int, default=-1,
                     help='Up to what layer to freeze in the pretrained model (assumes a resnet architectures)')
 parser.add_argument('--additional-hidden', type=int, default=0,
                     help='How many hidden layers to add on top of pretrained network + classification layer')
@@ -81,6 +83,9 @@ def main(args, store):
     if args.prune_percent:
         args.prune_rate = args.prune_percent / 100
         print("current prune_rate=", args.prune_rate)
+
+    if args.pytorch_pretrained:
+        args.model_path = None
 
     if args.only_extract_mask:
         args.dataset = 'imagenet'
@@ -100,23 +105,23 @@ def main(args, store):
         args.custom_accuracy = get_per_class_accuracy(args, validation_loader)
 
     model, checkpoint = get_model(args, ds)
-    check_sparsity(model, use_mask=False)
+    check_sparsity(model, use_mask=False, conv1=args.conv1)
 
     if args.structural_prune:
         cur_prune_rate = args.prune_rate
         print("L2 Structured Pruning (Conv2d channel pruning) Start")
-        prune_model_structural(model, cur_prune_rate)
+        prune_model_structural(model, cur_prune_rate, conv1=args.conv1)
         print("L2 Structured Pruning (Conv2d channel pruning) Done!")
     else:
         cur_prune_rate = args.prune_rate
         print("L1 Unstructured Pruning Start")
-        pruning_model(model, cur_prune_rate)
+        pruning_model(model, cur_prune_rate, conv1=args.conv1)
         print("L1 Unstructured Pruning Done!")
 
     # Extract mask
-    check_sparsity(model, use_mask=True)
+    check_sparsity(model, use_mask=True, conv1=args.conv1)
     current_mask = extract_mask(model.state_dict())
-    remove_prune(model)
+    remove_prune(model, conv1=args.conv1)
 
     if args.only_extract_mask:
         sd_info = {
@@ -153,7 +158,7 @@ def main(args, store):
     best_prec = train.train_model(args, model, (train_loader, validation_loader), mask=current_mask, store=store,
                                   checkpoint=checkpoint, update_params=update_params)
 
-    check_sparsity(model, use_mask=False)
+    check_sparsity(model, use_mask=False, conv1=args.conv1)
     outp_str = ("Structural " if args.structural_prune else "Unstructural ") + (
         "nat" if args.pytorch_pretrained else "adv") + f" {args.prune_rate} best prec {best_prec} \n"
     print(outp_str)
@@ -221,14 +226,14 @@ def get_dataset_and_loaders(args):
     if args.dataset in ['imagenet', 'stylized_imagenet']:
         ds = datasets.ImageNet(args.data)
         train_loader, validation_loader = ds.make_loaders(
-            only_val=args.eval_only, batch_size=args.batch_size, workers=0)
+            only_val=args.eval_only, batch_size=args.batch_size, workers=args.workers)
     elif args.cifar10_cifar10:
         ds = datasets.CIFAR('/tmp')
         train_loader, validation_loader = ds.make_loaders(
-            only_val=args.eval_only, batch_size=args.batch_size, workers=0)
+            only_val=args.eval_only, batch_size=args.batch_size, workers=args.workers)
     else:
         ds, (train_loader, validation_loader) = transfer_datasets.make_loaders(
-            ds=args.dataset, batch_size=args.batch_size, workers=0, subset=args.subset)
+            ds=args.dataset, batch_size=args.batch_size, workers=args.workers, subset=args.subset)
         if type(ds) == int:
             new_ds = datasets.CIFAR("/tmp")
             new_ds.num_classes = ds
@@ -362,15 +367,23 @@ def args_preprocess(args):
     return args
 
 
-def check_sparsity(model, use_mask=True):
+def check_sparsity(model, use_mask=True, conv1=True):
     sum_list = 0
     zero_sum = 0
 
     for module_name, module in model.named_modules():
         if isinstance(module, ch.nn.Conv2d):
-            module_sum_list, module_zero_sum = check_module_sparsity(module, use_mask=use_mask)
-            sum_list += module_sum_list
-            zero_sum += module_zero_sum
+            if 'conv1' in module_name and 'layer' not in module_name:
+                if conv1:
+                    module_sum_list, module_zero_sum = check_module_sparsity(module, use_mask=use_mask)
+                    sum_list += module_sum_list
+                    zero_sum += module_zero_sum
+                else:
+                    print('skip conv1 for sparsity checking')
+            else:
+                module_sum_list, module_zero_sum = check_module_sparsity(module, use_mask=use_mask)
+                sum_list += module_sum_list
+                zero_sum += module_zero_sum
 
     if zero_sum:
         remain_weight_rate = 100 * (1 - zero_sum / sum_list)
@@ -401,14 +414,20 @@ def check_module_sparsity(module, use_mask=True):
     return sum_list, zero_sum
 
 
-def pruning_model(model, px):
-    print('Apply Unstructured L1 Pruning Globally (all conv layers)')
+def pruning_model(model, px, conv1=False):
     parameters_to_prune = []
     for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
-            parameters_to_prune.append((m, 'weight'))
+            if 'conv1' in name and 'layer' not in name:
+                if conv1:
+                    parameters_to_prune.append((m, 'weight'))
+                else:
+                    print('skip conv1 for L1 unstructure global pruning')
+            else:
+                parameters_to_prune.append((m, 'weight'))
 
     parameters_to_prune = tuple(parameters_to_prune)
+
     prune.global_unstructured(
         parameters_to_prune,
         pruning_method=prune.L1Unstructured,
@@ -416,29 +435,43 @@ def pruning_model(model, px):
     )
 
 
-def prune_model_structural(model, cur_prune_rate):
+def prune_model_structural(model, cur_prune_rate, conv1=False):
     print('Apply Structured L2 Channel Pruning (all conv layers)')
     for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
-            prune.ln_structured(m, name="weight", amount=cur_prune_rate, n=2, dim=0)
-
-
-def prune_model_custom(model, mask_dict):
-    print('Pruning with custom mask (all conv layers)')
-    for name, m in model.named_modules():
-        if isinstance(m, nn.Conv2d):
-            mask_name = name + '.weight_mask'
-            if mask_name in mask_dict.keys():
-                prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name + '.weight_mask'])
+            if 'conv1' in name and 'layer' not in name:
+                if conv1:
+                    prune.ln_structured(m, name="weight", amount=cur_prune_rate, n=2, dim=0)
+                else:
+                    print('skip conv1 for Structured L2 Channel Pruning')
             else:
-                print('Can not fing [{}] in mask_dict'.format(mask_name))
+                prune.ln_structured(m, name="weight", amount=cur_prune_rate, n=2, dim=0)
 
 
-def remove_prune(model):
-    print('Remove hooks for multiplying masks (all conv layers)')
+def prune_model_custom(model, mask_dict, conv1=False):
+    print('start unstructured pruning with custom mask')
     for name, m in model.named_modules():
         if isinstance(m, nn.Conv2d):
-            prune.remove(m, 'weight')
+            if 'conv1' in name and 'layer' not in name:
+                if conv1:
+                    prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name + '.weight_mask'])
+                else:
+                    print('skip conv1 for custom pruning')
+            else:
+                prune.CustomFromMask.apply(m, 'weight', mask=mask_dict[name + '.weight_mask'])
+
+
+def remove_prune(model, conv1=False):
+    print('remove pruning')
+    for name, m in model.named_modules():
+        if isinstance(m, nn.Conv2d):
+            if 'conv1' in name and 'layer' not in name:
+                if conv1:
+                    prune.remove(m, 'weight')
+                else:
+                    print('skip conv1 for remove pruning')
+            else:
+                prune.remove(m, 'weight')
 
 
 def extract_mask(model_dict):

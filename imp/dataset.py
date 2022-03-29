@@ -11,13 +11,17 @@ __all__ = ['cifar10_dataloaders', 'cifar100_dataloaders', 'svhn_dataloaders', 'f
 def cifar10_dataloaders(args, use_val=True):
     normalize = transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010])
     train_transform = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        normalize
-    ])
+            # transforms.Resize(32),
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize
+        ])
 
     test_transform = transforms.Compose([
+        # transforms.Resize(32),
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
         transforms.ToTensor(),
         normalize
     ])
@@ -47,13 +51,17 @@ def cifar10_dataloaders(args, use_val=True):
 def cifar100_dataloaders(args, use_val=True):
     normalize = transforms.Normalize(mean=[0.5071, 0.4866, 0.4409], std=[0.2009, 0.1984, 0.2023])
     train_transform = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
+        # transforms.Resize(32),
+        transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         normalize
     ])
 
     test_transform = transforms.Compose([
+        # transforms.Resize(32),
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
         transforms.ToTensor(),
         normalize
     ])
