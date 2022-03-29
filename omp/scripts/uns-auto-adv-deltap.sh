@@ -1,6 +1,6 @@
 #!/bin/bash
 
-p=91
+p=90
 until [ ! $p -lt 100 ]
 do
   echo -e "\n\n"
@@ -22,10 +22,10 @@ do
     --weight-decay 5e-4 \
     --adv-train 0 \
     --adv-eval 0 \
-    --workers 0 \
+    --workers 16 \
     --model-path pretrained_models/resnet18_l2_eps3.ckpt \
     --freeze-level -1
 
-  p=`expr $p + 1`
+  p=`expr $p + 10`
 
 done

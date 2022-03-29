@@ -70,7 +70,7 @@ parser.add_argument("--trainer", type=str, default="tune", help="default / tune"
 parser.add_argument('--attack_type', default='None', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
 
 ############################# other settings ################################
-parser.add_argument('-j', '--workers', default=8, type=int, metavar='N',
+parser.add_argument('-j', '--workers', default=16, type=int, metavar='N',
                     help='number of data loading workers (default: 4)')
 parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
