@@ -31,8 +31,13 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 ############################# required settings ################################
-parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
-                    help='path to dataset')
+#parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
+#                    help='path to dataset') # AMD
+# parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC/',
+#                    help='path to dataset') # GPU7
+parser.add_argument('--data', metavar='DIR', default='/data1/ILSVRC/Annotations/CLS-LOC',
+                   help='path to dataset') # GPU3
+
 parser.add_argument('--set', type=str, default='ImageNet', help='ImageNet, cifar10, cifar100, svhn')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
@@ -49,7 +54,7 @@ parser.add_argument('-b', '--batch-size', default=512, type=int,
 parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--log_dir', default='runs', type=str)
-parser.add_argument('--name', default='R18_Linf_Eps2', type=str, help='experiment name')
+parser.add_argument('--name', default='R18_nat', type=str, help='experiment name')
 parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
                     help='path of the pretrained weight')
 parser.add_argument('--pytorch-pretrained', action='store_true',
