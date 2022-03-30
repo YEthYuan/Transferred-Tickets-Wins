@@ -31,12 +31,12 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 ############################# required settings ################################
-#parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
-#                    help='path to dataset') # AMD
+parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
+                    help='path to dataset') # AMD
 # parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC/',
 #                    help='path to dataset') # GPU7
-parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
-                   help='path to dataset') # GPU6
+#parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
+#                   help='path to dataset') # GPU6
 
 parser.add_argument('--set', type=str, default='ImageNet', help='ImageNet, cifar10, cifar100, svhn')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
@@ -237,7 +237,7 @@ def main_worker(gpu, args):
 
     if args.evaluate:
         nat_acc1, nat_acc5 = validate(val_loader, model, criterion, args, writer)
-        if args.attack_type is not 'None':
+        if args.attack_type != 'None':
             adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer)
         else:
             adv_acc1, adv_acc5 = -1, -1
@@ -277,7 +277,7 @@ def main_worker(gpu, args):
             nat_acc1, nat_acc5 = validate(val_loader, model, criterion, args, writer, epoch)
             log.info("[EVAL] Natural eval done! Nat@1: %.2f, Nat@5: %.2f", nat_acc1, nat_acc5)
 
-            if args.attack_type is not 'None':
+            if args.attack_type != 'None':
                 # evaluate on adversary validation set
                 adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer, epoch)
                 log.info("[EVAL] Robust eval done! Adv@1: %.2f, Adv@5: %.2f", adv_acc1, adv_acc5)
@@ -285,7 +285,7 @@ def main_worker(gpu, args):
                 adv_acc1, adv_acc5 = -1, -1
 
             # remember best acc@1 and save checkpoint
-            if args.attack_type is not 'None':
+            if args.attack_type != 'None':
                 is_best = adv_acc1 > best_acc1
                 best_acc1 = max(adv_acc1, best_acc1)
             else:
@@ -294,7 +294,7 @@ def main_worker(gpu, args):
 
             if is_best:
                 best_epoch = epoch + 1
-                if args.attack_type is not 'None':
+                if args.attack_type != 'None':
                     natural_acc1_at_best_robustness = nat_acc1
                 else:
                     natural_acc1_at_best_robustness = -1
@@ -349,7 +349,7 @@ def main_worker(gpu, args):
 
         prune_model_custom(model.module, current_mask, conv1=False)
         state_nat1, state_nat5 = validate(val_loader, model, criterion, args, writer, args.epochs)
-        if args.attack_type is not 'None':
+        if args.attack_type != 'None':
             state_val1, state_val5 = validate_adv(val_loader, model, criterion, args, writer, args.epochs)
         else:
             state_val1, state_val5 = -1, -1
@@ -362,7 +362,7 @@ def main_worker(gpu, args):
 
         log.info("[PRUNE] Pruning Done! Sparsity %.2f --> %.2f", before_sp, cur_sparsity)
         log.info("[EVAL] Ticket eval: Nat@1: %.2f, Nat@5: %.2f", state_nat1, state_nat5)
-        if args.attack_type is not 'None':
+        if args.attack_type != 'None':
             log.info("[EVAL] Ticket eval: Adv@1: %.2f, Adv@5: %.2f", state_val1, state_val5)
 
         path = save_checkpoint({
