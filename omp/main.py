@@ -30,7 +30,7 @@ parser.add_argument('--eps', type=str, help='adversarial perturbation budget', d
 parser.add_argument('--attack-lr', type=str, help='step size for PGD', default='10')
 
 # Custom arguments
-parser.add_argument('--dataset', type=str, default='cifar10',
+parser.add_argument('--dataset', type=str, default='svhn',
                     help='Dataset (Overrides the one in robustness.defaults)')
 parser.add_argument('--data', type=str, default='/home/yuanye/data')
 parser.add_argument('--out-dir', type=str, default='runs')
@@ -162,7 +162,8 @@ def main(args, store):
     outp_str = ("Structural " if args.structural_prune else "Unstructural ") + (
         "nat" if args.pytorch_pretrained else "adv") + f" {args.prune_rate} best prec {best_prec} \n"
     print(outp_str)
-    f = open("omp_log.txt", "a+")
+    file_name = f"{args.dataset}_{'s' if args.structural_prune else 'uns'}_omp_log.txt"
+    f = open(file_name, "a+")
     f.write(outp_str)
     f.close()
 

@@ -80,7 +80,7 @@ def make_loaders_CIFAR100(batch_size, workers, subset):
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers, subset=subset)
 
 
-def make_loaders_SVHN(batch_size, workers, subset):
+def make_loaders_SVHN(batch_size, workers):
     ds = ImageNetTransfer('/tmp', num_classes=10, name='svhn',
                           mean=[0.4377, 0.4438, 0.4728],
                           std=[0.1201, 0.1231, 0.1052])
