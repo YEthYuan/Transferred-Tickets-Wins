@@ -35,8 +35,8 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 #                    help='path to dataset') # AMD
 # parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC/',
 #                    help='path to dataset') # GPU7
-parser.add_argument('--data', metavar='DIR', default='/data1/ILSVRC/Annotations/CLS-LOC',
-                   help='path to dataset') # GPU3
+parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
+                   help='path to dataset') # GPU6
 
 parser.add_argument('--set', type=str, default='ImageNet', help='ImageNet, cifar10, cifar100, svhn')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
