@@ -1,8 +1,10 @@
 from robustness.datasets import DataSet, CIFAR
 from robustness import data_augmentation as da
 import torch as ch
+from torchvision import transforms
+
 from . import constants as cs
-from torchvision.datasets import CIFAR100
+from torchvision.datasets import CIFAR100, SVHN
 from .caltech import Caltech101, Caltech256
 
 from . import aircraft, food_101, dtd
@@ -12,6 +14,7 @@ import numpy as np
 
 _IMAGENET_MEAN = [0.485, 0.456, 0.406]
 _IMAGENET_STDDEV = [0.229, 0.224, 0.225]
+
 
 class ImageNetTransfer(DataSet):
     def __init__(self, data_path, **kwargs):
@@ -26,6 +29,7 @@ class ImageNetTransfer(DataSet):
         }
         super(ImageNetTransfer, self).__init__(kwargs['name'], data_path, **ds_kwargs)
 
+
 class TransformedDataset(Dataset):
     def __init__(self, ds, transform=None):
         self.transform = transform
@@ -39,23 +43,27 @@ class TransformedDataset(Dataset):
         if self.transform:
             sample = self.transform(sample)
             if sample.shape[0] == 1:
-                sample = sample.repeat(3,1,1)
+                sample = sample.repeat(3, 1, 1)
         return sample, label
+
 
 def make_loaders_pets(batch_size, workers):
     ds = ImageNetTransfer(cs.PETS_PATH, num_classes=37, name='pets',
-                            mean=[0., 0., 0.], std=[1., 1., 1.])
+                          mean=[0., 0., 0.], std=[1., 1., 1.])
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers)
+
 
 def make_loaders_birds(batch_size, workers):
     ds = ImageNetTransfer(cs.BIRDS_PATH, num_classes=500, name='birds',
-                            mean=[0.,0.,0.], std=[1.,1.,1.])
+                          mean=[0., 0., 0.], std=[1., 1., 1.])
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers)
+
 
 def make_loaders_SUN(batch_size, workers):
     ds = ImageNetTransfer(cs.SUN_PATH, num_classes=397, name='SUN397',
-                            mean=[0.,0.,0.], std=[1.,1.,1.])
+                          mean=[0., 0., 0.], std=[1., 1., 1.])
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers)
+
 
 def make_loaders_CIFAR10(batch_size, workers, subset):
     ds = CIFAR('/tmp')
@@ -63,31 +71,63 @@ def make_loaders_CIFAR10(batch_size, workers, subset):
     ds.transform_test = cs.TEST_TRANSFORMS
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers, subset=subset)
 
+
 def make_loaders_CIFAR100(batch_size, workers, subset):
     ds = ImageNetTransfer('/tmp', num_classes=100, name='cifar100',
-                    mean=[0.5071, 0.4867, 0.4408],
-                    std=[0.2675, 0.2565, 0.2761])
+                          mean=[0.5071, 0.4867, 0.4408],
+                          std=[0.2675, 0.2565, 0.2761])
     ds.custom_class = CIFAR100
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers, subset=subset)
 
+
+def make_loaders_SVHN(batch_size, workers, subset):
+    ds = ImageNetTransfer('/tmp', num_classes=10, name='svhn',
+                          mean=[0.4377, 0.4438, 0.4728],
+                          std=[0.1201, 0.1231, 0.1052])
+    normalize = transforms.Normalize(mean=[0.4377, 0.4438, 0.4728], std=[0.1201, 0.1231, 0.1052])
+    train_transform = transforms.Compose([
+        transforms.ToTensor(),
+        normalize
+    ])
+
+    test_transform = transforms.Compose([
+        transforms.ToTensor(),
+        normalize
+    ])
+
+    train_set = SVHN('/tmp', split='train', transform=train_transform, download=True)
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=workers,
+                              drop_last=True,
+                              pin_memory=True)
+
+    test_set = SVHN('/tmp', split='test', transform=test_transform, download=True)
+    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=workers,
+                             pin_memory=True)
+
+    return ds, (train_loader, test_loader)
+
+
 def make_loaders_oxford(batch_size, workers):
     ds = ImageNetTransfer(cs.FLOWERS_PATH, num_classes=102,
-            name='oxford_flowers', mean=[0.,0.,0.],
-            std=[1.,1.,1.])
+                          name='oxford_flowers', mean=[0., 0., 0.],
+                          std=[1., 1., 1.])
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers)
+
 
 def make_loaders_aircraft(batch_size, workers):
     ds = ImageNetTransfer(cs.FGVC_PATH, num_classes=100, name='aircraft',
-                    mean=[0.,0.,0.], std=[1.,1.,1.])
+                          mean=[0., 0., 0.], std=[1., 1., 1.])
     ds.custom_class = aircraft.FGVCAircraft
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers)
 
+
 def make_loaders_food(batch_size, workers):
     food = food_101.FOOD101()
-    train_ds, valid_ds, classes =  food.get_dataset()
+    train_ds, valid_ds, classes = food.get_dataset()
     train_dl, valid_dl = food.get_dls(train_ds, valid_ds, bs=batch_size,
-                                                    num_workers=workers)
+                                      num_workers=workers)
     return 101, (train_dl, valid_dl)
+
 
 def make_loaders_caltech101(batch_size, workers):
     ds = Caltech101(cs.CALTECH101_PATH, download=True)
@@ -97,19 +137,21 @@ def make_loaders_caltech101(batch_size, workers):
     ch.cuda.manual_seed_all(0)
     NUM_TRAINING_SAMPLES_PER_CLASS = 30
 
-    class_start_idx = [0]+ [i for i in np.arange(1, len(ds)) if ds.y[i]==ds.y[i-1]+1]
+    class_start_idx = [0] + [i for i in np.arange(1, len(ds)) if ds.y[i] == ds.y[i - 1] + 1]
 
-    train_indices = sum([np.arange(start_idx,start_idx + NUM_TRAINING_SAMPLES_PER_CLASS).tolist() for start_idx in class_start_idx],[])
-    test_indices = list((set(np.arange(1, len(ds))) - set(train_indices) ))
+    train_indices = sum(
+        [np.arange(start_idx, start_idx + NUM_TRAINING_SAMPLES_PER_CLASS).tolist() for start_idx in class_start_idx],
+        [])
+    test_indices = list((set(np.arange(1, len(ds))) - set(train_indices)))
 
     train_set = Subset(ds, train_indices)
     test_set = Subset(ds, test_indices)
 
-    train_set = TransformedDataset(train_set, transform=cs.TRAIN_TRANSFORMS) 
+    train_set = TransformedDataset(train_set, transform=cs.TRAIN_TRANSFORMS)
     test_set = TransformedDataset(test_set, transform=cs.TEST_TRANSFORMS)
 
     return 101, [DataLoader(d, batch_size=batch_size, shuffle=True,
-                num_workers=workers) for d in (train_set, test_set)]
+                            num_workers=workers) for d in (train_set, test_set)]
 
 
 def make_loaders_caltech256(batch_size, workers):
@@ -120,37 +162,42 @@ def make_loaders_caltech256(batch_size, workers):
     ch.cuda.manual_seed_all(0)
     NUM_TRAINING_SAMPLES_PER_CLASS = 60
 
-    class_start_idx = [0]+ [i for i in np.arange(1, len(ds)) if ds.y[i]==ds.y[i-1]+1]
+    class_start_idx = [0] + [i for i in np.arange(1, len(ds)) if ds.y[i] == ds.y[i - 1] + 1]
 
-    train_indices = sum([np.arange(start_idx,start_idx + NUM_TRAINING_SAMPLES_PER_CLASS).tolist() for start_idx in class_start_idx],[])
-    test_indices = list((set(np.arange(1, len(ds))) - set(train_indices) ))
+    train_indices = sum(
+        [np.arange(start_idx, start_idx + NUM_TRAINING_SAMPLES_PER_CLASS).tolist() for start_idx in class_start_idx],
+        [])
+    test_indices = list((set(np.arange(1, len(ds))) - set(train_indices)))
 
     train_set = Subset(ds, train_indices)
     test_set = Subset(ds, test_indices)
 
-    train_set = TransformedDataset(train_set, transform=cs.TRAIN_TRANSFORMS) 
+    train_set = TransformedDataset(train_set, transform=cs.TRAIN_TRANSFORMS)
     test_set = TransformedDataset(test_set, transform=cs.TEST_TRANSFORMS)
 
     return 257, [DataLoader(d, batch_size=batch_size, shuffle=True,
-                num_workers=workers) for d in (train_set, test_set)]
+                            num_workers=workers) for d in (train_set, test_set)]
 
 
 def make_loaders_dtd(batch_size, workers):
-        train_set = dtd.DTD(train=True)
-        val_set = dtd.DTD(train=False)
-        return 57, [DataLoader(ds, batch_size=batch_size, shuffle=True,
-                num_workers=workers) for ds in (train_set, val_set)]
+    train_set = dtd.DTD(train=True)
+    val_set = dtd.DTD(train=False)
+    return 57, [DataLoader(ds, batch_size=batch_size, shuffle=True,
+                           num_workers=workers) for ds in (train_set, val_set)]
+
 
 def make_loaders_cars(batch_size, workers):
     ds = ImageNetTransfer(cs.CARS_PATH, num_classes=196, name='stanford_cars',
-                            mean=[0.,0.,0.], std=[1.,1.,1.])
+                          mean=[0., 0., 0.], std=[1., 1., 1.])
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers)
+
 
 DS_TO_FUNC = {
     "dtd": make_loaders_dtd,
     "stanford_cars": make_loaders_cars,
     "cifar10": make_loaders_CIFAR10,
     "cifar100": make_loaders_CIFAR100,
+    "svhn": make_loaders_SVHN,
     "SUN397": make_loaders_SUN,
     "aircraft": make_loaders_aircraft,
     "flowers": make_loaders_oxford,
@@ -161,9 +208,10 @@ DS_TO_FUNC = {
     "pets": make_loaders_pets,
 }
 
+
 def make_loaders(ds, batch_size, workers, subset):
     if ds in ['cifar10', 'cifar100']:
         return DS_TO_FUNC[ds](batch_size, workers, subset)
-    
+
     if subset: raise Exception(f'Subset not supported for the {ds} dataset')
     return DS_TO_FUNC[ds](batch_size, workers)
