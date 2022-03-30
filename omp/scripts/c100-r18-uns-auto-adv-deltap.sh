@@ -22,8 +22,9 @@ do
     --weight-decay 5e-4 \
     --adv-train 0 \
     --adv-eval 0 \
-    --workers 0 \
+    --workers 32 \
     --model-path /home/yuanye/RST/omp/pretrained_models/resnet18_l2_eps1.ckpt \
+    --conv1 \
     --freeze-level -1
 
   p=`expr $p + 10`

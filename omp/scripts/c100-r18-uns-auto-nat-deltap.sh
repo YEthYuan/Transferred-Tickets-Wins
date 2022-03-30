@@ -22,8 +22,9 @@ do
     --weight-decay 5e-4 \
     --adv-train 0 \
     --adv-eval 0 \
-    --workers 0 \
+    --workers 32 \
     --pytorch-pretrained \
+    --conv1 \
     --freeze-level -1
 
   p=`expr $p + 10`
