@@ -46,7 +46,9 @@ def cifar10_dataloaders(args, use_val=True):
     test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
                              pin_memory=True)
 
-    return train_loader, val_loader, test_loader
+    dataset_normalization = NormalizeByChannelMeanStd(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010])
+
+    return train_loader, dataset_normalization, test_loader
 
 
 def cifar100_dataloaders(args, use_val=True):
@@ -181,6 +183,13 @@ class NormalizeByChannelMeanStd(nn.Module):
 
     def extra_repr(self):
         return 'mean={}, std={}'.format(self.mean, self.std)
+
+def normalize_fn(tensor, mean, std):
+    """Differentiable version of torchvision.functional.normalize"""
+    # here we assume the color channel is in at dim=1
+    mean = mean[None, :, None, None]
+    std = std[None, :, None, None]
+    return tensor.sub(mean).div(std)
 
 def imagenet_dataloaders(args, use_val=False, norm=True):
     if norm:

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-p=90
-until [ ! $p -lt 100 ]
+p=0
+until [ ! $p -lt 10 ]
 do
   echo -e "\n\n"
   echo "Now Pruning Rate ${p}%"
@@ -24,6 +24,7 @@ do
     --adv-eval 0 \
     --workers 16 \
     --pytorch-pretrained \
+    --conv1 \
     --freeze-level -1
 
   p=`expr $p + 10`

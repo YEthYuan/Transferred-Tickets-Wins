@@ -1,12 +1,10 @@
 import torch
 import torch.nn as nn
-from advertorch.utils import NormalizeByChannelMeanStd
 from torch.hub import load_state_dict_from_url
 
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
-        'resnet152', 'resnext50_32x4d', 'resnext101_32x8d',
-        'wide_resnet50_2', 'wide_resnet101_2']
+        'resnet152']
 
 
 model_urls = {
@@ -120,9 +118,9 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, block, layers, num_classes=10, zero_init_residual=False,
-                groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                norm_layer=None, normalize = None):
+    def __init__(self, block, layers, num_classes=1000, zero_init_residual=False,
+                 groups=1, width_per_group=64, replace_stride_with_dilation=None,
+                 norm_layer=None, normalize=None):
         super(ResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
@@ -139,12 +137,11 @@ class ResNet(nn.Module):
                             "or a 3-element tuple, got {}".format(replace_stride_with_dilation))
         self.groups = groups
         self.base_width = width_per_group
-
-        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3,
+                               bias=False)
         self.bn1 = norm_layer(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
-        self.maxpool = nn.Identity()
-
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         self.layer1 = self._make_layer(block, 64, layers[0])
         self.layer2 = self._make_layer(block, 128, layers[1], stride=2,
                                     dilate=replace_stride_with_dilation[0])
@@ -229,7 +226,7 @@ def _resnet(arch, block, layers, pretrained, progress, normalize, **kwargs):
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
-        model.load_state_dict(state_dict)
+        model.load_state_dict(state_dict, strict=False)
     return model
 
 def resnet18(pretrained=False, normalize=None, progress=True, **kwargs):

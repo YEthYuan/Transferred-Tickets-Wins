@@ -9,45 +9,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.backends.cudnn as cudnn
 from dataset import *
-from models.resnet import resnet18, resnet50, resnet152
+# from models.resnet import resnet18, resnet50, resnet152
 from pruning_utils import *
 
-__all__ = ['setup_model_dataset', 'setup_seed',
+__all__ = ['setup_seed',
             'train', 'test', 
             'save_checkpoint', 'load_weight_pt_trans', 'load_ticket']
 
-def setup_model_dataset(args):
-    
-    #prepare dataset
-    if args.dataset == 'cifar10':
-        classes = 10
-        train_loader, val_loader, test_loader = cifar10_dataloaders(args)
-    elif args.dataset == 'cifar100':
-        classes = 100
-        train_loader, val_loader, test_loader = cifar100_dataloaders(args)
-    elif args.dataset == 'svhn':
-        classes = 10
-        train_loader, val_loader, test_loader = svhn_dataloaders(args)
-    elif args.dataset == 'fmnist':
-        classes = 10
-        train_loader, val_loader, test_loader = fashionmnist_dataloaders(args)
-    else:
-        raise ValueError("Unknown Dataset")
-
-    #prepare model
-    if args.arch == 'resnet18':
-        model = resnet18(num_classes = classes)
-    elif args.arch == 'resnet50':
-        model = resnet50(num_classes = classes)
-    elif args.arch == 'resnet152':
-        model = resnet152(num_classes = classes)
-    else:
-        raise ValueError("Unknown Model")
-    
-    if args.dataset == 'fmnist':
-        model.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
-
-    return model, train_loader, val_loader, test_loader
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
     

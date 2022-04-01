@@ -16,6 +16,13 @@
           </mappings>
         </serverdata>
       </paths>
+      <paths name="yuanye@10.12.159.31:22 agent (1)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/yuanye/RST" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="yuanye@222.20.126.15:22 password">
         <serverdata>
           <mappings>

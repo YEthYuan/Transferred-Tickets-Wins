@@ -9,7 +9,6 @@ import warnings
 import copy
 import math
 
-from models.resnet import resnet18, resnet50
 import importlib
 import torch
 import torch.nn as nn
@@ -19,7 +18,7 @@ import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
-import torchvision.models as models
+import models
 from torch.utils.tensorboard import SummaryWriter
 from collections import OrderedDict
 
@@ -36,10 +35,12 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 #                     help='path to dataset') # AMD
 # parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC/',
 #                    help='path to dataset') # GPU7
-parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
-                  help='path to dataset') # GPU6
+# parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
+#                   help='path to dataset') # GPU6
+parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data/',
+                    help='path to dataset') # Debug
 
-parser.add_argument('--set', type=str, default='ImageNet', help='ImageNet, cifar10, cifar100, svhn')
+parser.add_argument('--set', type=str, default='cifar10', help='ImageNet, cifar10, cifar100, svhn')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
@@ -56,8 +57,10 @@ parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--log_dir', default='runs', type=str)
 parser.add_argument('--name', default='debug', type=str, help='experiment name')
-parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
-                    help='path of the pretrained weight')
+# parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
+#                     help='path of the pretrained weight')
+parser.add_argument('--model-path', type=str, default='/home/yuanye/RST/imp/pretrained_models/resnet18_l2_eps3.ckpt',
+                     help='path of the pretrained weight') # debug
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
 parser.add_argument('--percent', default=0.2, type=float, help='pruning rate for each iteration')
@@ -168,7 +171,7 @@ def main_worker(gpu, args):
             if 'normalize' not in k:
                 name = k[len('module.model.'):]
                 new_state_dict[name] = v
-        model.load_state_dict(new_state_dict)
+        model.load_state_dict(new_state_dict, strict=False)
         print("=> loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
         log.info("[LOAD] => loaded checkpoint '{}' (epoch {})".format(args.model_path, checkpoint['epoch']))
     else:
@@ -450,7 +453,7 @@ def get_model_dataset(args):
     # prepare dataset
     if args.set == 'cifar10':
         args.classes = 10
-        train_loader, _, test_loader = cifar10_dataloaders(args, use_val=False)
+        train_loader, data_norm, test_loader = cifar10_dataloaders(args, use_val=False)
     elif args.set == 'cifar100':
         args.classes = 100
         train_loader, _, test_loader = cifar100_dataloaders(args, use_val=False)
@@ -469,9 +472,9 @@ def get_model_dataset(args):
     # prepare model
     # model = models.__dict__[args.arch](pretrained=(not args.random), normalize=data_norm)
     if args.arch == 'resnet18':
-        model = ResNet18(pretrained=True, normalize=data_norm)
+        model = models.resnet.resnet18(pretrained=True, normalize=data_norm)
     elif args.arch == 'resnet18':
-        model = ResNet50(pretrained=True, normalize=data_norm)
+        model = models.resnet.resnet50(pretrained=True, normalize=data_norm)
     else:
         print('Wrong Model Arch')
         exit()

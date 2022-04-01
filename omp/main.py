@@ -45,7 +45,7 @@ parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--step-lr', type=int, default=30)
 parser.add_argument('--batch-size', type=int, default=64)
 parser.add_argument('--weight-decay', type=float, default=5e-4)
-parser.add_argument('--prune_rate', type=float, default=0.9)
+parser.add_argument('--prune_rate', type=float, default=0)
 parser.add_argument('--prune_percent', type=int, default=None)
 parser.add_argument('--structural_prune', action='store_true',
                     help='Use the structural pruning method (currently channel pruning)')
