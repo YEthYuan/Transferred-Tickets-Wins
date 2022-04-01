@@ -162,7 +162,7 @@ def main(args, store):
     outp_str = ("Structural " if args.structural_prune else "Unstructural ") + (
         "nat" if args.pytorch_pretrained else "adv") + f" {args.prune_rate} best prec {best_prec} \n"
     print(outp_str)
-    file_name = f"{args.dataset}_{'s' if args.structural_prune else 'uns'}_omp_log.txt"
+    file_name = f"{args.dataset}_{args.arch}_{'s' if args.structural_prune else 'uns'}_{'linear' if args.freeze_level == 4 else 'finetune'}.txt"
     f = open(file_name, "a+")
     f.write(outp_str)
     f.close()

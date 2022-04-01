@@ -82,22 +82,25 @@ def make_loaders_CIFAR100(batch_size, workers, subset):
 
 def make_loaders_SVHN(batch_size, workers):
     ds = ImageNetTransfer('/tmp', num_classes=10, name='svhn',
-                          mean=[0.4377, 0.4438, 0.4728],
-                          std=[0.1201, 0.1231, 0.1052])
-    normalize = transforms.Normalize(mean=[0.4377, 0.4438, 0.4728], std=[0.1201, 0.1231, 0.1052])
+                          mean=[0.5, 0.5, 0.5],
+                          std=[0.5, 0.5, 0.5])
+    normalize = transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
     train_transform = transforms.Compose([
+        # transforms.RandomResizedCrop(224),
+        # transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         normalize
     ])
 
     test_transform = transforms.Compose([
+        # transforms.Resize(256),
+        # transforms.CenterCrop(224),
         transforms.ToTensor(),
         normalize
     ])
 
     train_set = SVHN('/tmp', split='train', transform=train_transform, download=True)
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=workers,
-                              drop_last=True,
                               pin_memory=True)
 
     test_set = SVHN('/tmp', split='test', transform=test_transform, download=True)

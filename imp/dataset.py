@@ -92,11 +92,15 @@ def cifar100_dataloaders(args, use_val=True):
 def svhn_dataloaders(args, use_val=True):
     normalize = transforms.Normalize(mean=[0.4377, 0.4438, 0.4728], std=[0.1201, 0.1231, 0.1052])
     train_transform = transforms.Compose([
-        transforms.ToTensor(),
-        normalize
-    ])
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize
+        ])
 
     test_transform = transforms.Compose([
+        # transforms.Resize(256),
+        # transforms.CenterCrop(224),
         transforms.ToTensor(),
         normalize
     ])
