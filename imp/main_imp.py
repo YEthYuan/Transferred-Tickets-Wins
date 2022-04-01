@@ -9,6 +9,7 @@ import warnings
 import copy
 import math
 
+from models.resnet import resnet18, resnet50
 import importlib
 import torch
 import torch.nn as nn
@@ -31,12 +32,12 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 ############################# required settings ################################
-parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
-                    help='path to dataset') # AMD
+# parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
+#                     help='path to dataset') # AMD
 # parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC/',
 #                    help='path to dataset') # GPU7
-#parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
-#                   help='path to dataset') # GPU6
+parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
+                  help='path to dataset') # GPU6
 
 parser.add_argument('--set', type=str, default='ImageNet', help='ImageNet, cifar10, cifar100, svhn')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
@@ -54,7 +55,7 @@ parser.add_argument('-b', '--batch-size', default=512, type=int,
 parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float,
                     metavar='LR', help='initial learning rate', dest='lr')
 parser.add_argument('--log_dir', default='runs', type=str)
-parser.add_argument('--name', default='R18_nat', type=str, help='experiment name')
+parser.add_argument('--name', default='debug', type=str, help='experiment name')
 parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
                     help='path of the pretrained weight')
 parser.add_argument('--pytorch-pretrained', action='store_true',
@@ -461,13 +462,19 @@ def get_model_dataset(args):
         train_loader, _, test_loader = fashionmnist_dataloaders(args, use_val=False)
     elif args.set == 'ImageNet':
         args.classes = 1000
-        train_loader, _, test_loader = imagenet_dataloaders(args, use_val=False)
+        train_loader, data_norm, test_loader = imagenet_dataloaders(args, use_val=False, norm=False)
     else:
         raise ValueError("Unknown Dataset")
 
     # prepare model
-    model = models.__dict__[args.arch](pretrained=(not args.random))
-
+    # model = models.__dict__[args.arch](pretrained=(not args.random), normalize=data_norm)
+    if args.arch == 'resnet18':
+        model = ResNet18(pretrained=True, normalize=data_norm)
+    elif args.arch == 'resnet18':
+        model = ResNet50(pretrained=True, normalize=data_norm)
+    else:
+        print('Wrong Model Arch')
+        exit()
     return model, train_loader, test_loader
 
 

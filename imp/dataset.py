@@ -1,5 +1,6 @@
 import os
-
+import torch
+import torch.nn as nn
 from torchvision import transforms
 from torchvision.datasets import CIFAR10, CIFAR100, SVHN, FashionMNIST, ImageFolder
 from torch.utils.data import DataLoader, Subset
@@ -165,32 +166,69 @@ def fashionmnist_dataloaders(args, use_val=True):
 
     return train_loader, val_loader, test_loader
 
+class NormalizeByChannelMeanStd(nn.Module):
+    def __init__(self, mean, std):
+        super(NormalizeByChannelMeanStd, self).__init__()
+        if not isinstance(mean, torch.Tensor):
+            mean = torch.tensor(mean)
+        if not isinstance(std, torch.Tensor):
+            std = torch.tensor(std)
+        self.register_buffer("mean", mean)
+        self.register_buffer("std", std)
 
-def imagenet_dataloaders(args, use_val=False):
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                     std=[0.229, 0.224, 0.225])
+    def forward(self, tensor):
+        return normalize_fn(tensor, self.mean, self.std)
 
-    train_dataset = ImageFolder(
-        os.path.join(args.data, 'train'),
-        transforms.Compose([
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            normalize,
-        ]))
+    def extra_repr(self):
+        return 'mean={}, std={}'.format(self.mean, self.std)
 
-    train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True, sampler=None)
+def imagenet_dataloaders(args, use_val=False, norm=True):
+    if norm:
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        train_dataset = ImageFolder(
+            os.path.join(args.data, 'train'),
+            transforms.Compose([
+                transforms.RandomResizedCrop(224),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                normalize,
+            ]))
 
-    val_loader = DataLoader(
-        ImageFolder(os.path.join(args.data, 'val'), transforms.Compose([
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            normalize,
-        ])),
-        batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True)
+        train_loader = DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=True,
+            num_workers=args.workers, pin_memory=True, sampler=None)
 
-    return train_loader, None, val_loader
+        val_loader = DataLoader(
+            ImageFolder(os.path.join(args.data, 'val'), transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+                normalize,
+            ])),
+            batch_size=args.batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+        dataset_normalization = None
+    else:
+        train_dataset = ImageFolder(
+            os.path.join(args.data, 'train'),
+            transforms.Compose([
+                transforms.RandomResizedCrop(224),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+            ]))
+
+        train_loader = DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=True,
+            num_workers=args.workers, pin_memory=True, sampler=None)
+
+        val_loader = DataLoader(
+            ImageFolder(os.path.join(args.data, 'val'), transforms.Compose([
+                transforms.Resize(256),
+                transforms.CenterCrop(224),
+                transforms.ToTensor(),
+            ])),
+            batch_size=args.batch_size, shuffle=False,
+            num_workers=args.workers, pin_memory=True)
+        dataset_normalization = NormalizeByChannelMeanStd(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+    return train_loader, dataset_normalization, val_loader
