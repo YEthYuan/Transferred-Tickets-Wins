@@ -10,6 +10,8 @@ import copy
 import math
 
 import importlib
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.parallel
@@ -18,6 +20,8 @@ import torch.optim
 import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
+from robustness.tools import helpers
+
 import models
 from torch.utils.tensorboard import SummaryWriter
 from collections import OrderedDict
@@ -36,7 +40,7 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 # parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC/',
 #                    help='path to dataset') # GPU7
 parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
-                  help='path to dataset') # GPU6
+                    help='path to dataset')  # GPU6
 # parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data/',
 #                     help='path to dataset') # Debug
 
@@ -154,6 +158,27 @@ def main_worker(gpu, args):
     log.info("[INIT] => using model '{}', dataset '{}'".format(args.arch, args.set))
     model, train_loader, val_loader = get_model_dataset(args)
     if_pruned = False
+
+    if args.per_class_accuracy:
+        assert args.set in ['pets', 'caltech101', 'flowers'], \
+            f'Per-class accuracy not supported for the {args.set} dataset.'
+
+        # VERY IMPORTANT
+        # We report the per-class accuracy using the validation
+        # set distribution. So ignore the training accuracy (as you will see it go
+        # beyond 100. Don't freak out, it doesn't really capture anything),
+        # just look at the validation accuarcy
+        log.info("[INIT] => using per_class_accuracy")
+        log.info(
+            """
+                          # VERY IMPORTANT
+        # We report the per-class accuracy using the validation
+        # set distribution. So ignore the training accuracy (as you will see it go
+        # beyond 100. Don't freak out, it doesn't really capture anything),
+        # just look at the validation accuracy
+            """
+        )
+        args.custom_accuracy = get_per_class_accuracy(args, val_loader)
 
     writer = SummaryWriter(log_dir=log_base_dir)
 
@@ -379,7 +404,8 @@ def main_worker(gpu, args):
         log.info("*" * 150)
         print(f"State {prun_iter} report: ")
         log.info(f"State {prun_iter} report: ")
-        print(f'Training: best acc1: {best_acc1:.2f}, NAABR: {natural_acc1_at_best_robustness:.2f}, best epoch: {best_epoch}')
+        print(
+            f'Training: best acc1: {best_acc1:.2f}, NAABR: {natural_acc1_at_best_robustness:.2f}, best epoch: {best_epoch}')
         log.info(
             f'Training: best acc1: {best_acc1:.2f}, NAABR: {natural_acc1_at_best_robustness:.2f}, best epoch: {best_epoch}')
         print(f"Pruning: Sparsity before: {before_sp:.2f}, Sparsity after: {cur_sparsity:.2f}")
@@ -454,19 +480,40 @@ def get_model_dataset(args):
     # prepare dataset
     if args.set == 'cifar10':
         args.classes = 10
-        train_loader, data_norm, test_loader = cifar10_dataloaders(args, use_val=False)
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = cifar10_dataloaders(args, use_val=False, norm=False)
     elif args.set == 'cifar100':
         args.classes = 100
-        train_loader, _, test_loader = cifar100_dataloaders(args, use_val=False)
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = cifar100_dataloaders(args, use_val=False, norm=False)
     elif args.set == 'svhn':
         args.classes = 10
-        train_loader, _, test_loader = svhn_dataloaders(args, use_val=False)
-    elif args.set == 'fmnist':
-        args.classes = 10
-        train_loader, _, test_loader = fashionmnist_dataloaders(args, use_val=False)
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = svhn_dataloaders(args, use_val=False, norm=False)
     elif args.set == 'ImageNet':
         args.classes = 1000
+        args.per_class_accuracy = False
         train_loader, data_norm, test_loader = imagenet_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'caltech101':
+        args.classes = 102
+        args.per_class_accuracy = True
+        train_loader, data_norm, test_loader = caltech101_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'dtd':
+        args.classes = 47
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = dtd_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'flowers':
+        args.classes = 102
+        args.per_class_accuracy = True
+        train_loader, data_norm, test_loader = flowers_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'pets':
+        args.classes = 37
+        args.per_class_accuracy = True
+        train_loader, data_norm, test_loader = pets_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'sun':
+        args.classes = 397
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = SUN397_dataloaders(args, use_val=False, norm=False)
     else:
         raise ValueError("Unknown Dataset")
 
@@ -480,6 +527,49 @@ def get_model_dataset(args):
         print('Wrong Model Arch')
         exit()
     return model, train_loader, test_loader
+
+
+def get_per_class_accuracy(args, loader):
+    '''Returns the custom per_class_accuracy function. When using this custom function
+    look at only the validation accuracy. Ignore trainig set accuracy.
+    '''
+
+    def _get_class_weights(args, loader):
+        '''Returns the distribution of classes in a given dataset.
+        '''
+        if args.set in ['pets', 'flowers']:
+            targets = loader.dataset.targets
+
+        elif args.set in ['caltech101', 'caltech256']:
+            targets = np.array([loader.dataset.ds.dataset.y[idx]
+                                for idx in loader.dataset.ds.indices])
+
+        elif args.set == 'aircraft':
+            targets = [s[1] for s in loader.dataset.samples]
+
+        counts = np.unique(targets, return_counts=True)[1]
+        class_weights = counts.sum() / (counts * len(counts))
+        return torch.Tensor(class_weights)
+
+    class_weights = _get_class_weights(args, loader)
+
+    def custom_acc(logits, labels):
+        '''Returns the top1 accuracy, weighted by the class distribution.
+        This is important when evaluating an unbalanced dataset.
+        '''
+        batch_size = labels.size(0)
+        maxk = min(5, logits.shape[-1])
+        prec1, _ = helpers.accuracy(
+            logits, labels, topk=(1, maxk), exact=True)
+
+        normal_prec1 = prec1.sum(0, keepdim=True).mul_(100 / batch_size)
+        weighted_prec1 = prec1 * class_weights[labels.cpu()].cuda()
+        weighted_prec1 = weighted_prec1.sum(
+            0, keepdim=True).mul_(100 / batch_size)
+
+        return weighted_prec1.item(), normal_prec1.item()
+
+    return custom_acc
 
 
 if __name__ == '__main__':

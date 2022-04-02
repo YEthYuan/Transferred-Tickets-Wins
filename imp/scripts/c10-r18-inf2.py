@@ -3,6 +3,10 @@ pydir = r"/home/yuanye/anaconda3/envs/t38/bin/python"
 dir = r"/home/yuanye/RST/imp/tickets/R18_inf2"
 ignore = [
     r"/home/yuanye/RST/imp/tickets/R18_inf2/mask_state0_sp80.0.pth.tar",
+    r"/home/yuanye/RST/imp/tickets/R18_inf2/mask_state1_sp64.0.pth.tar",
+    r"/home/yuanye/RST/imp/tickets/R18_inf2/mask_state2_sp51.2.pth.tar",
+    r"/home/yuanye/RST/imp/tickets/R18_inf2/mask_state3_sp40.96.pth.tar",
+    r"/home/yuanye/RST/imp/tickets/R18_inf2/mask_state4_sp32.77.pth.tar",
 ]
 arch = "resnet18"
 ds = "cifar10"

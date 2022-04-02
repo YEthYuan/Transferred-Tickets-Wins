@@ -4,7 +4,7 @@ from torchvision import transforms
 FGVC_PATH = "/tmp/datasets/fgvc-aircraft-2013b/"
 
 # Oxford Flowers dataset
-FLOWERS_PATH = "/tmp/datasets/oxford_flowers_pytorch/"
+FLOWERS_PATH = "/home/yuanye/data/flowers-102/"
 
 # DTD dataset
 DTD_PATH="/tmp/datasets/dtd/"

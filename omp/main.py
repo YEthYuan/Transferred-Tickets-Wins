@@ -7,6 +7,8 @@ import dill
 import numpy as np
 import torch as ch
 from cox import utils
+from tqdm import tqdm
+
 from my_robustness import datasets, defaults, model_utils, train, attacker
 from my_robustness.tools import helpers
 from torch import nn
@@ -30,7 +32,7 @@ parser.add_argument('--eps', type=str, help='adversarial perturbation budget', d
 parser.add_argument('--attack-lr', type=str, help='step size for PGD', default='10')
 
 # Custom arguments
-parser.add_argument('--dataset', type=str, default='svhn',
+parser.add_argument('--dataset', type=str, default='flowers',
                     help='Dataset (Overrides the one in robustness.defaults)')
 parser.add_argument('--data', type=str, default='/home/yuanye/data')
 parser.add_argument('--out-dir', type=str, default='runs')
@@ -51,7 +53,7 @@ parser.add_argument('--structural_prune', action='store_true',
                     help='Use the structural pruning method (currently channel pruning)')
 parser.add_argument('--adv-train', type=int, default=0)
 parser.add_argument('--adv-eval', type=int, default=0)
-parser.add_argument('--workers', type=int, default=16)
+parser.add_argument('--workers', type=int, default=0)
 parser.add_argument('--conv1', action='store_true',
                     help="If true, prune the conv1, if false, skip the conv1")
 parser.add_argument('--resume', action='store_true',
@@ -176,18 +178,24 @@ def get_per_class_accuracy(args, loader):
     def _get_class_weights(args, loader):
         '''Returns the distribution of classes in a given dataset.
         '''
-        if args.dataset in ['pets', 'flowers']:
-            targets = loader.dataset.targets
-
-        elif args.dataset in ['caltech101', 'caltech256']:
-            targets = np.array([loader.dataset.ds.dataset.y[idx]
-                                for idx in loader.dataset.ds.indices])
-
-        elif args.dataset == 'aircraft':
-            targets = [s[1] for s in loader.dataset.samples]
+        # if args.dataset in ['pets', 'flowers']:
+        #     targets = loader.dataset.targets
+        #
+        # elif args.dataset in ['caltech101', 'caltech256']:
+        #     targets = np.array([loader.dataset.ds.dataset.y[idx]
+        #                         for idx in loader.dataset.ds.indices])
+        #
+        # elif args.dataset == 'aircraft':
+        #     targets = [s[1] for s in loader.dataset.samples]
+        targets = []
+        targets = np.array(targets)
+        print('Calculating the class weights ... ... ')
+        for _, target in tqdm(loader):
+            targets = np.append(targets, target.numpy())
 
         counts = np.unique(targets, return_counts=True)[1]
         class_weights = counts.sum() / (counts * len(counts))
+        print("class weight: ", class_weights)
         return ch.Tensor(class_weights)
 
     class_weights = _get_class_weights(args, loader)
@@ -224,6 +232,10 @@ def get_dataset(args):
 def get_dataset_and_loaders(args):
     '''Given arguments, returns a datasets object and the train and validation loaders.
     '''
+    if args.dataset in ['pets', 'caltech101', 'caltech256', 'flowers', 'aircraft']:
+        args.per_class_accuracy = True
+    else:
+        args.per_class_accuracy = False
     if args.dataset in ['imagenet', 'stylized_imagenet']:
         ds = datasets.ImageNet(args.data)
         train_loader, validation_loader = ds.make_loaders(
@@ -233,7 +245,7 @@ def get_dataset_and_loaders(args):
         train_loader, validation_loader = ds.make_loaders(
             only_val=args.eval_only, batch_size=args.batch_size, workers=args.workers)
     else:
-        ds, (train_loader, validation_loader) = transfer_datasets.make_loaders(
+        ds, (train_loader, validation_loader) = transfer_datasets.make_loaders(args=args,
             ds=args.dataset, batch_size=args.batch_size, workers=args.workers, subset=args.subset)
         if type(ds) == int:
             new_ds = datasets.CIFAR("/tmp")

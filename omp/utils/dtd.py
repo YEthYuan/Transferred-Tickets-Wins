@@ -6,20 +6,20 @@ from os.path import join as osj
 from PIL import Image
 
 class DTD(Dataset):
-    def __init__(self, split="1", train=False):
+    def __init__(self, path=cs.DTD_PATH, split="1", train=False):
         super().__init__()
-        train_path = osj(cs.DTD_PATH, f"labels/train{split}.txt")
-        val_path = osj(cs.DTD_PATH, f"labels/val{split}.txt")
-        test_path = osj(cs.DTD_PATH, f"labels/test{split}.txt")
+        train_path = osj(path, f"labels/train{split}.txt")
+        val_path = osj(path, f"labels/val{split}.txt")
+        test_path = osj(path, f"labels/test{split}.txt")
         if train:
             self.ims = open(train_path).readlines() + \
                             open(val_path).readlines()
         else:
             self.ims = open(test_path).readlines()
         
-        self.full_ims = [osj(cs.DTD_PATH, "images", x) for x in self.ims]
+        self.full_ims = [osj(path, "images", x) for x in self.ims]
         
-        pth = osj(cs.DTD_PATH, f"labels/classes.txt")
+        pth = osj(path, f"labels/classes.txt")
         self.c_to_t = {x.strip(): i for i, x in enumerate(open(pth).readlines())}
 
         self.transform = cs.TRAIN_TRANSFORMS if train else \

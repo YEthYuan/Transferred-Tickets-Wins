@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import tqdm
 import abc
 
+from robustness.tools.helpers import has_attr
 from torch.utils.tensorboard import SummaryWriter
 
 
@@ -379,7 +380,12 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
         loss = criterion(output, y)
 
         # measure accuracy and record loss
-        acc1, acc5 = accuracy(output, y, topk=(1, 5))
+        model_logits = output[0] if (type(output) is tuple) else output
+        if has_attr(args, "custom_accuracy"):
+            acc1, acc5 = args.custom_accuracy(model_logits, y)
+        else:
+            acc1, acc5 = accuracy(model_logits, y, topk=(1, 5))
+
         losses.update(loss.item(), X.size(0))
         top1.update(acc1.item(), X.size(0))
         top5.update(acc5.item(), X.size(0))
@@ -516,7 +522,12 @@ def validate(val_loader, model, criterion, args, writer, epoch):
             loss = criterion(output, y)
 
             # measure accuracy and record loss
-            acc1, acc5 = accuracy(output, y, topk=(1, 5))
+            model_logits = output[0] if (type(output) is tuple) else output
+            if has_attr(args, "custom_accuracy"):
+                acc1, acc5 = args.custom_accuracy(model_logits, y)
+            else:
+                acc1, acc5 = accuracy(model_logits, y, topk=(1, 5))
+
             losses.update(loss.item(), X.size(0))
             top1.update(acc1.item(), X.size(0))
             top5.update(acc5.item(), X.size(0))

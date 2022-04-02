@@ -12,23 +12,23 @@ def parse_arguments():
 
     # General Config
     parser.add_argument(
-        "--data", help="path to dataset base directory", default="/mnt/disk1/datasets"
+        "--data", help="path to dataset base directory", default="/home/yuanye/data"
     )
     parser.add_argument("--optimizer", help="Which optimizer to use", default="sgd")
-    parser.add_argument("--set", help="name of dataset", type=str, default="ImageNet")
+    parser.add_argument("--set", help="name of dataset", type=str, default="CIFAR10")
     parser.add_argument(
         "-a", "--arch", metavar="ARCH", default="ResNet18", help="model architecture"
     )
     parser.add_argument(
-        "--config", help="Config file to use (see configs dir)", default=None
+        "--config", help="Config file to use (see configs dir)", default='config_rst/resnet18-cifar-debug.yaml'
     )
     parser.add_argument(
-        "--log-dir", help="Where to save the runs. If None use ./runs", default=None
+        "--log-dir", help="Where to save the runs. If None use ./runs", default="./debug_runs"
     )
     parser.add_argument(
         "-j",
         "--workers",
-        default=20,
+        default=32,
         type=int,
         metavar="N",
         help="number of data loading workers (default: 20)",
@@ -114,7 +114,8 @@ def parse_arguments():
     parser.add_argument(
         "--pretrained",
         dest="pretrained",
-        default=None,
+        default="pretrained_models/resnet50_l2_eps3.ckpt",
+        # default=None,
         type=str,
         help="use pre-trained model",
     )
@@ -139,7 +140,7 @@ def parse_arguments():
         "--multistep_lr_gamma", default=0.1, type=int, help="Multistep multiplier"
     )
     parser.add_argument(
-        "--name", default=None, type=str, help="Experiment name to append to filepath"
+        "--name", default="debug_run", type=str, help="Experiment name to append to filepath"
     )
     parser.add_argument(
         "--save_every", default=-1, type=int, help="Save every ___ epochs"
@@ -176,7 +177,7 @@ def parse_arguments():
         help="One batch train set for debugging purposes (test overfitting)",
     )
     parser.add_argument(
-        "--conv_type", type=str, default=None, help="What kind of sparsity to use"
+        "--conv_type", type=str, default='SubnetConv', help="What kind of sparsity to use"
     )
     parser.add_argument(
         "--freeze-weights",
