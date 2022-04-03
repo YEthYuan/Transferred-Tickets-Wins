@@ -280,7 +280,7 @@ def caltech101_dataloaders(args, use_val=True, norm=True):
 
     else:
 
-        ds = Caltech101(args.data, download=True)
+        ds = Caltech101(args.data, download=False)
         np.random.seed(0)
         torch.manual_seed(0)
         torch.cuda.manual_seed(0)

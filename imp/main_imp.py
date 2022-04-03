@@ -39,12 +39,15 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 #                     help='path to dataset') # AMD
 # parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC/',
 #                    help='path to dataset') # GPU7
-parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
-                    help='path to dataset')  # GPU6
+# parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
+#                     help='path to dataset')  # GPU6
 # parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data/',
 #                     help='path to dataset') # Debug
 
-parser.add_argument('--set', type=str, default='ImageNet', help='ImageNet, cifar10, cifar100, svhn')
+parser.add_argument('--data', metavar='DIR', default='/home/sw99/datasets/',
+                    help='path to dataset') # Caltech101
+
+parser.add_argument('--set', type=str, default='caltech101', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
@@ -52,15 +55,17 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                          ' (default: resnet50)')
 parser.add_argument('--epochs', default=10, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('-b', '--batch-size', default=512, type=int,
+parser.add_argument('-b', '--batch-size', default=64, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
                          'using Data Parallel or Distributed Data Parallel')
-parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float,
-                    metavar='LR', help='initial learning rate', dest='lr')
+
+# parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float, metavar='LR', help='initial learning rate', dest='lr') # ImageNet Batch 256
+parser.add_argument('--lr', '--learning-rate', default=0.001, type=float, metavar='LR', help='initial learning rate', dest='lr') # Downstream Finetune
+
 parser.add_argument('--log_dir', default='runs', type=str)
-parser.add_argument('--name', default='debug', type=str, help='experiment name')
+parser.add_argument('--name', default='R18_cal101_Linf_Eps2', type=str, help='experiment name')
 parser.add_argument('--model-path', type=str, default='/home/sw99/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
                     help='path of the pretrained weight')
 # parser.add_argument('--model-path', type=str, default='/home/yuanye/RST/imp/pretrained_models/resnet18_l2_eps3.ckpt',
@@ -95,7 +100,7 @@ parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
 
 # Adv params
-parser.add_argument('--attack_type', default='fgsm-rs', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
+parser.add_argument('--attack_type', default='None', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
 parser.add_argument('--epsilon', default=2, type=int)
 parser.add_argument('--alpha', default=2.5, type=float, help='Step size')
 parser.add_argument('--attack_iters', default=1, type=int, help='Attack iterations')
