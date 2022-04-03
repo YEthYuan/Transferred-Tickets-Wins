@@ -1,11 +1,11 @@
 import os
 pydir = r"/home/yuanye/anaconda3/envs/t38/bin/python"
-dir = r"/home/yuanye/RST/imp/tickets/R18_inf2"
+dir = r"/home/yuanye/RST/imp/tickets/R18_nat"
 ignore = [
 
 ]
 arch = "resnet18"
-ds = "cifar10"
+ds = "cifar100"
 # ===========
 init_weight = ""
 mask_list = []

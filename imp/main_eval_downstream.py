@@ -471,7 +471,7 @@ def get_per_class_accuracy(args, loader):
         weighted_prec1 = weighted_prec1.sum(
             0, keepdim=True).mul_(100 / batch_size)
 
-        return weighted_prec1.item(), normal_prec1.item()
+        return weighted_prec1, normal_prec1
 
     return custom_acc
 

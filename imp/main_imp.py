@@ -21,6 +21,7 @@ import torch.utils.data
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 from robustness.tools import helpers
+from tqdm import tqdm
 
 import models
 from torch.utils.tensorboard import SummaryWriter
@@ -41,13 +42,13 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 #                    help='path to dataset') # GPU7
 # parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
 #                     help='path to dataset')  # GPU6
-# parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data/',
-#                     help='path to dataset') # Debug
+parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data/',
+                    help='path to dataset') # Debug
 
-parser.add_argument('--data', metavar='DIR', default='/home/sw99/datasets/',
-                    help='path to dataset') # Caltech101
+# parser.add_argument('--data', metavar='DIR', default='/home/sw99/datasets/',
+#                     help='path to dataset') # Caltech101
 
-parser.add_argument('--set', type=str, default='caltech101', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
+parser.add_argument('--set', type=str, default='pets', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
@@ -66,10 +67,10 @@ parser.add_argument('--lr', '--learning-rate', default=0.001, type=float, metava
 
 parser.add_argument('--log_dir', default='runs', type=str)
 parser.add_argument('--name', default='R18_cal101_Linf_Eps2', type=str, help='experiment name')
-parser.add_argument('--model-path', type=str, default='/home/sw99/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
-                    help='path of the pretrained weight')
-# parser.add_argument('--model-path', type=str, default='/home/yuanye/RST/imp/pretrained_models/resnet18_l2_eps3.ckpt',
-#                      help='path of the pretrained weight') # debug
+# parser.add_argument('--model-path', type=str, default='/home/sw99/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
+#                     help='path of the pretrained weight')
+parser.add_argument('--model-path', type=str, default='/home/yuanye/RST/imp/pretrained_models/resnet18_l2_eps3.ckpt',
+                     help='path of the pretrained weight') # debug
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
 parser.add_argument('--percent', default=0.2, type=float, help='pruning rate for each iteration')
@@ -542,18 +543,24 @@ def get_per_class_accuracy(args, loader):
     def _get_class_weights(args, loader):
         '''Returns the distribution of classes in a given dataset.
         '''
-        if args.set in ['pets', 'flowers']:
-            targets = loader.dataset.targets
-
-        elif args.set in ['caltech101', 'caltech256']:
-            targets = np.array([loader.dataset.ds.dataset.y[idx]
-                                for idx in loader.dataset.ds.indices])
-
-        elif args.set == 'aircraft':
-            targets = [s[1] for s in loader.dataset.samples]
+        # if args.dataset in ['pets', 'flowers']:
+        #     targets = loader.dataset.targets
+        #
+        # elif args.dataset in ['caltech101', 'caltech256']:
+        #     targets = np.array([loader.dataset.ds.dataset.y[idx]
+        #                         for idx in loader.dataset.ds.indices])
+        #
+        # elif args.dataset == 'aircraft':
+        #     targets = [s[1] for s in loader.dataset.samples]
+        targets = []
+        targets = np.array(targets)
+        print('Calculating the class weights ... ... ')
+        for _, target in tqdm(loader):
+            targets = np.append(targets, target.numpy())
 
         counts = np.unique(targets, return_counts=True)[1]
         class_weights = counts.sum() / (counts * len(counts))
+        print("class weight: ", class_weights)
         return torch.Tensor(class_weights)
 
     class_weights = _get_class_weights(args, loader)
@@ -572,7 +579,7 @@ def get_per_class_accuracy(args, loader):
         weighted_prec1 = weighted_prec1.sum(
             0, keepdim=True).mul_(100 / batch_size)
 
-        return weighted_prec1.item(), normal_prec1.item()
+        return weighted_prec1, normal_prec1
 
     return custom_acc
 

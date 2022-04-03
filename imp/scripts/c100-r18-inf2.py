@@ -5,7 +5,7 @@ ignore = [
 
 ]
 arch = "resnet18"
-ds = "cifar10"
+ds = "cifar100"
 # ===========
 init_weight = ""
 mask_list = []
