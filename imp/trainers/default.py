@@ -113,9 +113,13 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
     
     # epsilon = (args.epsilon / 255.) / std
     # alpha = (args.alpha / 255.) / std
-    
-    epsilon = args.epsilon / 255.
-    alpha = args.alpha / 255.
+    if args.constraint == 'Linf':
+        epsilon = args.epsilon / 255.
+        alpha = args.alpha / 255.
+    elif args.constraint == 'L2':
+        epsilon = args.epsilon
+        alpha = args.alpha
+        
     ones = torch.ones_like(mu)
     # switch to train mode
     model.train()
