@@ -4,6 +4,7 @@ import random
 import time
 import shutil
 import math
+from collections import OrderedDict
 
 from torch.utils.tensorboard import SummaryWriter
 import torch
@@ -14,6 +15,7 @@ import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
 
+from rst.utils import builder
 from utils.conv_type import FixedSubnetConv, SampleSubnetConv
 from utils.logging import AverageMeter, ProgressMeter
 from utils.net_utils import (
@@ -39,6 +41,9 @@ from utils.builder import get_builder
 
 def main():
     # print(args)
+    if args.prune_percent:
+        args.prune_rate = args.prune_percent / 100
+        print("current prune_rate=", args.prune_rate)
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -74,11 +79,10 @@ def main_worker(args):
 
     # create model and optimizer
     model = get_model(args)
-    model = set_gpu(args, model)
 
     if args.task != 'search':
         if args.pretrained is None:
-            path = run_base_dir.parent / 'search' / 'checkpoints'/ 'model_best.pth'
+            path = run_base_dir.parent / 'search' / 'checkpoints' / 'model_best.pth'
             if os.path.exists(path):
                 args.pretrained = path
             else:
@@ -92,11 +96,14 @@ def main_worker(args):
 
     elif args.pretrained:
         pretrained(args, model)
-    
+
+    if args.classes != 1000:
+        change_fc_layer(args, model)
+
     # freezing the weights if we are only doing subnet training
     if args.task == 'search':
         freeze_model_weights(model)
-    
+
     else:
         # freezing the subnet and finetuning the model weights
         freeze_model_subnet(model)
@@ -114,7 +121,7 @@ def main_worker(args):
             init_model_weight_with_score(model, prune_rate=args.prune_rate)
             # set_model_prune_rate(model, prune_rate=1.0)
 
-
+    model = set_gpu(args, model)
     optimizer = get_optimizer(args, model)
     data = get_dataset(args)
     lr_policy = get_policy(args.lr_policy)(optimizer, args)
@@ -154,7 +161,7 @@ def main_worker(args):
             )
 
             log.info('Natural Acc: %.2f, Robust Acc: %.2f', natural_acc1, acc1)
-        
+
         else:
             acc1, acc5 = validate(
                 data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
@@ -163,7 +170,6 @@ def main_worker(args):
             log.info('Natural Acc: %.2f', acc1)
 
         return
-
 
     writer = SummaryWriter(log_dir=log_base_dir)
     epoch_time = AverageMeter("epoch_time", ":.4f", write_avg=False)
@@ -213,10 +219,10 @@ def main_worker(args):
         )
 
         if args.discard_mode:
-            if (epoch+1) % args.discard_epoch == 0:
+            if (epoch + 1) % args.discard_epoch == 0:
                 for n, m in model.named_modules():
                     if hasattr(m, "discard_low_score"):
-                        m.discard_low_score(min(args.discard_rate * ((epoch+1)//args.discard_epoch), 1))
+                        m.discard_low_score(min(args.discard_rate * ((epoch + 1) // args.discard_epoch), 1))
 
         train_time.update((time.time() - start_train) / 60)
 
@@ -251,7 +257,7 @@ def main_worker(args):
 
             if is_best and args.attack_type != 'None':
                 natural_acc1_at_best_robustness = natural_acc1
-                
+
             if is_best:
                 log.info(f"==> New best, saving at {ckpt_base_dir / 'model_best.pth'}")
 
@@ -276,30 +282,31 @@ def main_worker(args):
                 )
 
             if args.attack_type != 'None':
-                log.info('Epoch[%d][%d] curr natural acc: %.2f, natural acc at best robustness: %.2f \n curr robust acc: %.2f, best robust acc: %.2f', 
-                        args.epochs, epoch, natural_acc1, natural_acc1_at_best_robustness, acc1, best_acc1)
+                log.info(
+                    'Epoch[%d][%d] curr natural acc: %.2f, natural acc at best robustness: %.2f \n curr robust acc: %.2f, best robust acc: %.2f',
+                    args.epochs, epoch, natural_acc1, natural_acc1_at_best_robustness, acc1, best_acc1)
             else:
                 log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
-        
+
         elif 'ImageNet' in args.set:
             save_checkpoint(
-                    {
-                        "epoch": epoch + 1,
-                        "arch": args.arch,
-                        "state_dict": model.state_dict(),
-                        "best_acc1": best_acc1,
-                        "best_acc5": best_acc5,
-                        "best_train_acc1": best_train_acc1,
-                        "best_train_acc5": best_train_acc5,
-                        "natural_acc1_at_best_robustness": natural_acc1_at_best_robustness,
-                        "optimizer": optimizer.state_dict(),
-                        "curr_acc1": None,
-                        "curr_acc5": None,
-                    },
-                    is_best=False,
-                    filename=ckpt_base_dir / f"epoch_{epoch}.state",
-                    save=False,
-                )
+                {
+                    "epoch": epoch + 1,
+                    "arch": args.arch,
+                    "state_dict": model.state_dict(),
+                    "best_acc1": best_acc1,
+                    "best_acc5": best_acc5,
+                    "best_train_acc1": best_train_acc1,
+                    "best_train_acc5": best_train_acc5,
+                    "natural_acc1_at_best_robustness": natural_acc1_at_best_robustness,
+                    "optimizer": optimizer.state_dict(),
+                    "curr_acc1": None,
+                    "curr_acc5": None,
+                },
+                is_best=False,
+                filename=ckpt_base_dir / f"epoch_{epoch}.state",
+                save=False,
+            )
 
         # if args.conv_type == "SampleSubnetConv":
         #     count = 0
@@ -324,9 +331,11 @@ def main_worker(args):
         #     writer.add_scalar("pr/average", args.prune_rate, epoch)
 
         if args.discard_mode:
-            if (epoch+1) % args.discard_epoch == 0:
+            if (epoch + 1) % args.discard_epoch == 0:
                 if args.progressive_prune:
-                    set_model_prune_rate(model, prune_rate=0.9-min(args.discard_rate * ((epoch+1)//args.discard_epoch), 1))
+                    set_model_prune_rate(model,
+                                         prune_rate=0.9 - min(args.discard_rate * ((epoch + 1) // args.discard_epoch),
+                                                              1))
 
         epoch_time.update((time.time() - end_epoch) / 60)
         progress_overall.display(epoch)
@@ -348,12 +357,13 @@ def main_worker(args):
     #     base_config=args.config,
     #     name=args.name,
     # )
-
-    log_dir_new = 'logs/log_'+args.name
+    
+    log.info(args)
+    log_dir_new = 'logs/log_' + args.name
     if not os.path.exists(log_dir_new):
         os.makedirs(log_dir_new)
-    
-    shutil.copyfile(log_path, os.path.join(log_dir_new, 'log_'+args.task+'.txt'))
+
+    shutil.copyfile(log_path, os.path.join(log_dir_new, 'log_' + args.task + '.txt'))
 
 
 def get_trainer(args):
@@ -406,23 +416,36 @@ def resume(args, model, optimizer):
 def pretrained(args, model):
     if os.path.isfile(args.pretrained):
         print("=> loading pretrained weights from '{}'".format(args.pretrained))
-        pretrained = torch.load(args.pretrained)["state_dict"]
+        pretrained = torch.load(args.pretrained)
+        try:
+            sd = pretrained["state_dict"]
+        except:
+            sd = pretrained['model']
 
-        if args.not_strict:
-            model_state_dict = model.state_dict()
-            for k, v in pretrained.items():
-                if k not in model_state_dict or v.size() != model_state_dict[k].size():
-                    print("IGNORE:", k)
-            pretrained = {
-                k: v
-                for k, v in pretrained.items()
-                if (k in model_state_dict and v.size() == model_state_dict[k].size())
-            }
-            model_state_dict.update(pretrained)
-            model.load_state_dict(model_state_dict, strict=False)
+        new_state_dict = OrderedDict()
+        for k, v in sd.items():
+            if 'attacker' in k:
+                break
+            if 'normalize' not in k:
+                name = k[len('module.model.'):]
+                new_state_dict[name] = v
+        model.load_state_dict(new_state_dict, strict=False)
 
-        else:
-            model.load_state_dict(pretrained)
+        # if args.not_strict:
+        #     model_state_dict = model.state_dict()
+        #     for k, v in pretrained.items():
+        #         if k not in model_state_dict or v.size() != model_state_dict[k].size():
+        #             print("IGNORE:", k)
+        #     pretrained = {
+        #         k: v
+        #         for k, v in pretrained.items()
+        #         if (k in model_state_dict and v.size() == model_state_dict[k].size())
+        #     }
+        #     model_state_dict.update(pretrained)
+        #     model.load_state_dict(model_state_dict, strict=False)
+        #
+        # else:
+        #     model.load_state_dict(pretrained)
 
     else:
         print("=> no pretrained weights found at '{}'".format(args.pretrained))
@@ -447,26 +470,26 @@ def get_model(args):
     print("=> Creating model '{}'".format(args.arch))
 
     if args.set == 'ImageNet' or args.set == 'TinyImageNet':
-        num_classes = 1000
+        args.classes = 1000
     elif args.set == 'CIFAR100':
-        num_classes = 100
-    else:
-        num_classes = 10
+        args.classes = 100
+    elif args.set == 'CIFAR10':
+        args.classes = 10
 
-    model = models.__dict__[args.arch](num_classes=num_classes)
+    model = models.__dict__[args.arch](num_classes=1000)
 
     # applying sparsity to the network
     if (
-        args.conv_type != "DenseConv"
-        and args.conv_type != "SampleSubnetConv"
-        and args.conv_type != "ContinuousSparseConv"
+            args.conv_type != "DenseConv"
+            and args.conv_type != "SampleSubnetConv"
+            and args.conv_type != "ContinuousSparseConv"
     ):
         if args.prune_rate < 0:
             raise ValueError("Need to set a positive prune rate")
 
         set_model_prune_rate(model, prune_rate=args.prune_rate)
         print(
-            f"=> Rough estimate model params {sum(int(p.numel() * (1-args.prune_rate)) for n, p in model.named_parameters() if not n.endswith('scores'))}"
+            f"=> Rough estimate model params {sum(int(p.numel() * (1 - args.prune_rate)) for n, p in model.named_parameters() if not n.endswith('scores'))}"
         )
 
     # freezing the weights if we are only doing subnet training
@@ -580,14 +603,19 @@ def get_directories(args):
     if args.config is None or args.name is None:
         raise ValueError("Must have name and config")
 
+    if args.task == "search":
+        last = args.task
+    else:
+        last = args.task + '_' + args.set
+
     config = pathlib.Path(args.config).stem
     if args.log_dir is None:
         run_base_dir = pathlib.Path(
-            f"runs/{config}/{args.name}/prune_rate={args.prune_rate}/{args.task}"
+            f"runs/{config}/{args.name}/prune_rate={args.prune_rate}/{last}"
         )
     else:
         run_base_dir = pathlib.Path(
-            f"{args.log_dir}/{config}/{args.name}/prune_rate={args.prune_rate}/{args.task}"
+            f"{args.log_dir}/{config}/{args.name}/prune_rate={args.prune_rate}/{last}"
         )
     if args.width_mult != 1.0:
         run_base_dir = run_base_dir / "width_mult={}".format(str(args.width_mult))
@@ -644,6 +672,12 @@ def write_result_to_csv(**kwargs):
                 "{best_train_acc5:.02f}\n"
             ).format(now=now, **kwargs)
         )
+
+
+def change_fc_layer(args, model):
+    print(f"Change the fc layer to fit in dataset: {args.set}")
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, args.classes)
 
 
 if __name__ == "__main__":

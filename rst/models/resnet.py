@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 from utils.builder import get_builder
@@ -116,11 +117,11 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(builder, block, 512, layers[3], stride=2)
         self.avgpool = nn.AdaptiveAvgPool2d(1)
 
-        # self.fc = nn.Linear(512 * block.expansion, num_classes)
-        if args.last_layer_dense:
-            self.fc = nn.Conv2d(512 * block.expansion, args.num_classes, 1)
-        else:
-            self.fc = builder.conv1x1(512 * block.expansion, num_classes)
+        self.fc = nn.Linear(512 * block.expansion, num_classes)
+        # if args.last_layer_dense:
+        #     self.fc = nn.Conv2d(512 * block.expansion, args.num_classes, 1)
+        # else:
+        #     self.fc = builder.conv1x1(512 * block.expansion, num_classes)
 
     def _make_layer(self, builder, block, planes, blocks, stride=1):
         downsample = None
@@ -156,8 +157,8 @@ class ResNet(nn.Module):
         x = self.layer4(x)
 
         x = self.avgpool(x)
+        x = torch.flatten(x, 1)
         x = self.fc(x)
-        x = x.view(x.size(0), -1)
 
         return x
 

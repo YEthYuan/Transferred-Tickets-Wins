@@ -8,14 +8,16 @@ name: debug_runs
 
 # ===== Learning Rate Policy ======== #
 optimizer: sgd
-lr: 0.1
-lr_policy: cifar_piecewise
+lr: 0.256
+lr_policy: cosine_lr
+warmup_length: 5
 
 # ===== Network training config ===== #
-epochs: 160
-weight_decay: 0.0005
-momentum: 0.9
+epochs: 100
+weight_decay: 0.000030517578125
+momentum: 0.875
 batch_size: 256
+label_smoothing: 0.1
 
 # ===== Sparsity =========== #
 conv_type: SubnetConv
