@@ -36,8 +36,8 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 ############################# required settings ################################
-# parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
-#                     help='path to dataset') # AMD
+parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
+                     help='path to dataset') # AMD
 # parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC/',
 #                    help='path to dataset') # GPU7
 # parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
@@ -45,12 +45,12 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 # parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data/',
 #                     help='path to dataset') # Debug
 
-parser.add_argument('--data', metavar='DIR', default='/home/sw99/datasets/',
-                    help='path to dataset') # Caltech101
+#parser.add_argument('--data', metavar='DIR', default='/home/sw99/datasets/',
+#                    help='path to dataset') # Caltech101
 
 parser.add_argument('--downstream', action='store_true')
 
-parser.add_argument('--set', type=str, default='caltech101', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
+parser.add_argument('--set', type=str, default='ImageNet', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
@@ -70,7 +70,7 @@ parser.add_argument('--decreasing_lr', default=None, help='decreasing strategy')
 parser.add_argument('--warmup', default=0, type=int, help='warm up epochs') # Imagenet upstream IMP
 parser.add_argument('--log_dir', default='runs', type=str)
 parser.add_argument('--name', default='R50_cal101_Linf_Eps4', type=str, help='experiment name')
-parser.add_argument('--model-path', type=str, default='/home/sw99/ResNet_ckpt/resnet50_linf_eps4.0.ckpt',
+parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet50_linf_eps4.0.ckpt',
                     help='path of the pretrained weight')
 # parser.add_argument('--model-path', type=str, default='/home/yuanye/RST/imp/pretrained_models/resnet18_l2_eps3.ckpt',
 #                      help='path of the pretrained weight') # debug
@@ -108,7 +108,7 @@ parser.add_argument('--attack_type', default='fgsm-rs', choices=['fgsm', 'fgsm-r
 parser.add_argument('--epsilon', default=4, type=int)
 parser.add_argument('--alpha', default=5, type=float, help='Step size')
 parser.add_argument('--attack_iters', default=1, type=int, help='Attack iterations')
-parser.add_argument('--constraint', default='L2', type=str, choices=['Linf', 'L2'])
+parser.add_argument('--constraint', default='Linf', type=str, choices=['Linf', 'L2'])
 
 
 def main():
