@@ -115,3 +115,10 @@ class NormalizeByChannelMeanStd(nn.Module):
 
     def extra_repr(self):
         return 'mean={}, std={}'.format(self.mean, self.std)
+        
+def normalize_fn(tensor, mean, std):
+    """Differentiable version of torchvision.functional.normalize"""
+    # here we assume the color channel is in at dim=1
+    mean = mean[None, :, None, None]
+    std = std[None, :, None, None]
+    return tensor.sub(mean).div(std)
