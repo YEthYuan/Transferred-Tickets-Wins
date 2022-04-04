@@ -580,3 +580,6 @@ def validate(val_loader, model, criterion, args, writer, epoch):
             progress.write_to_tensorboard(writer, prefix="test", global_step=epoch)
 
     return top1.avg, top5.avg
+    
+def modifier(args, epoch, model):
+    return
