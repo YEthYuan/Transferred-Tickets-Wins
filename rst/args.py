@@ -258,6 +258,8 @@ def parse_arguments():
         help="the second pre-trained model dir for calculating cosine similarity",
     )
 
+    parser.add_argument("--data_norm", action="store_true", help="doing data norm out of model")
+
     args = parser.parse_args()
 
     # Allow for use from notebook without config file

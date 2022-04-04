@@ -1,6 +1,7 @@
 import os
 
 import torch
+import torch.nn as nn
 from torchvision import datasets, transforms
 
 import torch.multiprocessing
@@ -25,39 +26,92 @@ class ImageNet:
         normalize = transforms.Normalize(
             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
         )
-
-        train_dataset = datasets.ImageFolder(
-            traindir,
-            transforms.Compose(
-                [
-                    transforms.RandomResizedCrop(224),
-                    transforms.RandomHorizontalFlip(),
-                    transforms.ToTensor(),
-                    normalize,
-                ]
-            ),
-        )
-
-        self.train_loader = torch.utils.data.DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs
-        )
-
-        if args.test_batch_size is None:
-            args.test_batch_size = args.batch_size // 2
-
-        self.val_loader = torch.utils.data.DataLoader(
-            datasets.ImageFolder(
-                valdir,
+        if args.data_norm:
+            train_dataset = datasets.ImageFolder(
+                traindir,
                 transforms.Compose(
                     [
-                        transforms.Resize(256),
-                        transforms.CenterCrop(224),
+                        transforms.RandomResizedCrop(224),
+                        transforms.RandomHorizontalFlip(),
                         transforms.ToTensor(),
                         normalize,
                     ]
                 ),
-            ),
-            batch_size=args.test_batch_size,
-            shuffle=False,
-            **kwargs
-        )
+            )
+
+            self.train_loader = torch.utils.data.DataLoader(
+                train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs
+            )
+
+            if args.test_batch_size is None:
+                args.test_batch_size = args.batch_size // 2
+
+            self.val_loader = torch.utils.data.DataLoader(
+                datasets.ImageFolder(
+                    valdir,
+                    transforms.Compose(
+                        [
+                            transforms.Resize(256),
+                            transforms.CenterCrop(224),
+                            transforms.ToTensor(),
+                            normalize,
+                        ]
+                    ),
+                ),
+                batch_size=args.test_batch_size,
+                shuffle=False,
+                **kwargs
+            )
+            self.data_norm = None
+        else:
+            train_dataset = datasets.ImageFolder(
+                traindir,
+                transforms.Compose(
+                    [
+                        transforms.RandomResizedCrop(224),
+                        transforms.RandomHorizontalFlip(),
+                        transforms.ToTensor(),
+                    ]
+                ),
+            )
+
+            self.train_loader = torch.utils.data.DataLoader(
+                train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs
+            )
+
+            if args.test_batch_size is None:
+                args.test_batch_size = args.batch_size // 2
+
+            self.val_loader = torch.utils.data.DataLoader(
+                datasets.ImageFolder(
+                    valdir,
+                    transforms.Compose(
+                        [
+                            transforms.Resize(256),
+                            transforms.CenterCrop(224),
+                            transforms.ToTensor(),
+                        ]
+                    ),
+                ),
+                batch_size=args.test_batch_size,
+                shuffle=False,
+                **kwargs
+            )
+            self.data_norm = NormalizeByChannelMeanStd(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+
+class NormalizeByChannelMeanStd(nn.Module):
+    def __init__(self, mean, std):
+        super(NormalizeByChannelMeanStd, self).__init__()
+        if not isinstance(mean, torch.Tensor):
+            mean = torch.tensor(mean)
+        if not isinstance(std, torch.Tensor):
+            std = torch.tensor(std)
+        self.register_buffer("mean", mean)
+        self.register_buffer("std", std)
+
+    def forward(self, tensor):
+        return normalize_fn(tensor, self.mean, self.std)
+
+    def extra_repr(self):
+        return 'mean={}, std={}'.format(self.mean, self.std)

@@ -49,7 +49,7 @@ parser.add_argument('--data', metavar='DIR', default='/home/sw99/datasets/',
                     help='path to dataset') # Caltech101
 
 parser.add_argument('--set', type=str, default='caltech101', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
@@ -71,11 +71,11 @@ parser.add_argument('--decreasing_lr', default='91,136', help='decreasing strate
 # parser.add_argument('--warmup', default=0, type=int, help='warm up epochs') # Imagenet upstream IMP
 parser.add_argument('--warmup', default=1, type=int, help='warm up epochs') # Downstream IMP
 parser.add_argument('--log_dir', default='runs', type=str)
-parser.add_argument('--name', default='R18_cal101_Linf_Eps2', type=str, help='experiment name')
-# parser.add_argument('--model-path', type=str, default='/home/sw99/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
-#                     help='path of the pretrained weight')
-parser.add_argument('--model-path', type=str, default='/home/yuanye/RST/imp/pretrained_models/resnet18_l2_eps3.ckpt',
-                     help='path of the pretrained weight') # debug
+parser.add_argument('--name', default='R50_cal101_Linf_Eps4', type=str, help='experiment name')
+parser.add_argument('--model-path', type=str, default='/home/sw99/ResNet_ckpt/resnet50_linf_eps4.0.ckpt',
+                    help='path of the pretrained weight')
+# parser.add_argument('--model-path', type=str, default='/home/yuanye/RST/imp/pretrained_models/resnet18_l2_eps3.ckpt',
+#                      help='path of the pretrained weight') # debug
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
 parser.add_argument('--percent', default=0.2, type=float, help='pruning rate for each iteration')

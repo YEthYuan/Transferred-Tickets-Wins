@@ -76,9 +76,10 @@ def main_worker(args):
         args.epochs = int(math.ceil(args.epochs / args.n_repeats))
 
     train, validate, validate_adv, modifier = get_trainer(args)
+    data = get_dataset(args)
 
     # create model and optimizer
-    model = get_model(args)
+    model = get_model(args, data.data_norm)
 
     if args.task != 'search':
         if args.pretrained is None:
@@ -120,10 +121,9 @@ def main_worker(args):
         if args.task == 'ft_full':
             init_model_weight_with_score(model, prune_rate=args.prune_rate)
             # set_model_prune_rate(model, prune_rate=1.0)
-
+   
     model = set_gpu(args, model)
     optimizer = get_optimizer(args, model)
-    data = get_dataset(args)
     lr_policy = get_policy(args.lr_policy)(optimizer, args)
 
     if args.label_smoothing is None:
@@ -463,7 +463,7 @@ def get_dataset(args):
     return dataset
 
 
-def get_model(args):
+def get_model(args, data_norm):
     if args.first_layer_dense:
         args.first_layer_type = "DenseConv"
 
@@ -476,7 +476,11 @@ def get_model(args):
     elif args.set == 'CIFAR10':
         args.classes = 10
 
-    model = models.__dict__[args.arch](num_classes=1000)
+    if args.set == 'ImageNet':
+        print(data_norm)
+        model = models.__dict__[args.arch](num_classes=1000, norm=data_norm)
+    else:
+        model = models.__dict__[args.arch](num_classes=1000)
 
     # applying sparsity to the network
     if (

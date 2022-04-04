@@ -1,0 +1,86 @@
+main_imp.py:126: UserWarning: You have chosen to seed training. This will turn on the CUDNN deterministic setting, which can slow down your training considerably! You may see unexpected behavior when restarting from checkpoints.
+  warnings.warn('You have chosen to seed training. '
+[2022/04/03 07:56:02] - Namespace(alpha=2.5, arch='resnet50', attack_iters=1, attack_type='None', batch_size=256, ckpt_base_dir=PosixPath('runs/R50_cal101_Linf_Eps2/checkpoints'), constraint='L2', data='/home/sw99/datasets/', decreasing_lr='91,136', epochs=182, epsilon=2, evaluate=False, gpu=None, log_dir='runs', lr=0.1, model_path='/home/sw99/ResNet_ckpt/resnet50_linf_eps2.0.ckpt', momentum=0.9, name='R50_cal101_Linf_Eps2', percent=0.2, print_freq=50, pytorch_pretrained=False, random=False, resume='', seed=142, set='caltech101', start_epoch=0, start_state=0, states=19, trainer='default', warmup=1, weight_decay=0.0002, workers=16)
+[2022/04/03 07:56:02] - [INIT] => using model 'resnet50', dataset 'caltech101'
+[2022/04/03 07:56:08] - [INIT] => using per_class_accuracy
+[2022/04/03 07:56:08] - 
+                          # VERY IMPORTANT
+        # We report the per-class accuracy using the validation
+        # set distribution. So ignore the training accuracy (as you will see it go
+        # beyond 100. Don't freak out, it doesn't really capture anything),
+        # just look at the validation accuracy
+            
+=> using model 'resnet50', dataset 'caltech101'
+Calculating the class weights ... ... 
+  0%|          | 0/23 [00:00<?, ?it/s]  4%|▍         | 1/23 [00:12<04:42, 12.86s/it]  9%|▊         | 2/23 [00:17<02:48,  8.01s/it] 74%|███████▍  | 17/23 [00:17<00:03,  1.65it/s] 87%|████████▋ | 20/23 [00:18<00:01,  1.86it/s]100%|██████████| 23/23 [00:18<00:00,  1.22it/s]
+[2022/04/03 07:56:27] - Loading pretrained weights
+[2022/04/03 07:56:27] - [LOAD] => loading checkpoint '/home/sw99/ResNet_ckpt/resnet50_linf_eps2.0.ckpt'
+[2022/04/03 07:56:28] - [LOAD] => loaded checkpoint '/home/sw99/ResNet_ckpt/resnet50_linf_eps2.0.ckpt' (epoch 90)
+[2022/04/03 07:56:34] - [INIT] dataparallel mode
+[2022/04/03 07:56:34] - [CKPT] Initial Weight Checkpoint saved at directory: runs/R50_cal101_Linf_Eps2/checkpoints/weight_init.pth.tar
+[2022/04/03 07:56:34] - [INIT] => Attack type 'None'
+[2022/04/03 07:56:34] - ======================================================================================================================================================
+[2022/04/03 07:56:34] - [TRAIN] State 0 start, current sparsity: 100.0
+[2022/04/03 07:56:34] - [INIT] Resume all records to zero
+[2022/04/03 07:56:34] - ------------------------------------------------------------------------------------------------------------------------------------------------------
+[2022/04/03 07:56:34] - [TRAIN] State 0 Epoch 0 start, sparsity 100.0, lr 0.1
+class weight:  [ 0.13805158  0.13805158  0.32888759  0.07280064  2.23643564  0.07261155
+  4.65924092  4.65924092  3.28887595  2.32962046  3.49443069 18.6369637
+  0.5705193   0.82221899  4.30083778  1.01656166  0.91657199  2.79554455
+  4.30083778  0.60119238  3.28887595  1.92796176  1.74721535  0.72611547
+  3.28887595  1.43361259  1.30025328  1.39777228  2.79554455  2.66242339
+  2.07077374  1.51110516  2.54140414  1.59745403  1.47133924  1.24246425
+  1.64443797  2.43090831  1.64443797  1.01656166  1.51110516  1.51110516
+  3.72739274 13.97772277 13.97772277  2.66242339  0.81030277  0.79872702
+  4.65924092  2.32962046  0.96398088  1.11821782 55.91089109  1.64443797
+  0.99840877  0.66560585  1.80357713  1.09629198  1.16481023  5.08280828
+  1.55308031  4.30083778  5.59108911  0.98089283 27.95544554  1.21545415
+  2.23643564 11.18217822  6.21232123  3.28887595  6.98886139  3.72739274
+  2.43090831 13.97772277  2.07077374  1.07520944  1.92796176  2.94267848
+  5.59108911  1.69426943  6.21232123  1.03538687  2.07077374 11.18217822
+  1.64443797  3.72739274  0.99840877  1.92796176  1.64443797 11.18217822
+  1.01656166  2.94267848  0.99840877  1.24246425  0.26751623  7.98727016
+  1.92796176 13.97772277  2.15041889  6.21232123  1.86369637]
+=> loading checkpoint '/home/sw99/ResNet_ckpt/resnet50_linf_eps2.0.ckpt'
+=> loaded checkpoint '/home/sw99/ResNet_ckpt/resnet50_linf_eps2.0.ckpt' (epoch 90)
+dataparallel mode
+=> Using trainer from trainers.default
+=> Attack type 'None'
+skip conv1 for sparsity checking
+no weight for calculating sparsity
+0.1
+  0%|          | 0/12 [00:00<?, ?it/s]  0%|          | 0/12 [00:03<?, ?it/s]
+Traceback (most recent call last):
+  File "main_imp.py", line 607, in <module>
+    main()
+  File "main_imp.py", line 136, in main
+    main_worker(args.gpu, args)
+  File "main_imp.py", line 324, in main_worker
+    train_acc1, train_acc5 = train(train_loader, model, criterion, optimizer, epoch, args, writer)
+  File "/home/sw99/Transferred-Tickets-Wins/imp/trainers/default.py", line 488, in train
+    output = model(X)
+  File "/home/sw99/anaconda3/envs/pytorch/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sw99/anaconda3/envs/pytorch/lib/python3.8/site-packages/torch/nn/parallel/data_parallel.py", line 166, in forward
+    return self.module(*inputs[0], **kwargs[0])
+  File "/home/sw99/anaconda3/envs/pytorch/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sw99/Transferred-Tickets-Wins/imp/models/resnet.py", line 221, in forward
+    return self._forward_impl(x)
+  File "/home/sw99/Transferred-Tickets-Wins/imp/models/resnet.py", line 209, in _forward_impl
+    x = self.layer1(x)
+  File "/home/sw99/anaconda3/envs/pytorch/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sw99/anaconda3/envs/pytorch/lib/python3.8/site-packages/torch/nn/modules/container.py", line 141, in forward
+    input = module(input)
+  File "/home/sw99/anaconda3/envs/pytorch/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sw99/Transferred-Tickets-Wins/imp/models/resnet.py", line 107, in forward
+    out = self.conv3(out)
+  File "/home/sw99/anaconda3/envs/pytorch/lib/python3.8/site-packages/torch/nn/modules/module.py", line 1110, in _call_impl
+    return forward_call(*input, **kwargs)
+  File "/home/sw99/anaconda3/envs/pytorch/lib/python3.8/site-packages/torch/nn/modules/conv.py", line 447, in forward
+    return self._conv_forward(input, self.weight, self.bias)
+  File "/home/sw99/anaconda3/envs/pytorch/lib/python3.8/site-packages/torch/nn/modules/conv.py", line 443, in _conv_forward
+    return F.conv2d(input, weight, bias, self.stride,
+RuntimeError: CUDA out of memory. Tried to allocate 784.00 MiB (GPU 0; 10.76 GiB total capacity; 3.45 GiB already allocated; 765.56 MiB free; 3.77 GiB reserved in total by PyTorch) If reserved memory is >> allocated memory try setting max_split_size_mb to avoid fragmentation.  See documentation for Memory Management and PYTORCH_CUDA_ALLOC_CONF
