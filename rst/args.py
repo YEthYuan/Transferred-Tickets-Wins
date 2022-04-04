@@ -14,6 +14,7 @@ def parse_arguments():
     parser.add_argument('--epsilon', default=8, type=int)
     parser.add_argument('--alpha', default=10, type=float, help='Step size')
     parser.add_argument('--attack_iters', default=7, type=int, help='Attack iterations')
+    parser.add_argument('--constraint', default='Linf', type=str, choices=['Linf', 'L2'])
     parser.add_argument('--task', default='ft_full', choices=['search', 'ft_full'])
     parser.add_argument("--ft_init", default="kaiming_normal", help="Weight initialization for finetuning")
     parser.add_argument("--ft_full_mode", default='all', choices=['all', 'only_zero', 'decay_on_zero', 'low_lr_zero'],

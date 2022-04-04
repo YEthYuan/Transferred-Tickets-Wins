@@ -10,7 +10,7 @@ do
 
   python main.py \
     --arch ResNet18 \
-    --attack_type pgd \
+    --attack_type fgsm-rs \
     --prune_percent ${p} \
     --task search \
     --set ImageNet \
@@ -28,10 +28,10 @@ do
     --momentum 0.875 \
     --label-smoothing 0.1 \
     --workers 32 \
-    --epsilon 3 \
-    --alpha 2 \
-    --attack_iters 2
-
+    --epsilon 2 \
+    --alpha 2.5 \
+    --attack_iters 1 \
+    --constraint Linf
   p=`expr $p + 10`
 
 done
