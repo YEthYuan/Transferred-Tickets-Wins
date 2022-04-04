@@ -141,7 +141,8 @@ def main_worker(gpu, args):
         args.decreasing_lr = '91, 136'
         args.warmup = 1
         args.weight_decay = 2e-4
-        args.attack_type = None
+        args.attack_type = 'None'
+        args.data = '/home/yf22/datasets/'
 
     best_acc1 = 0.0
     best_epoch = 0
