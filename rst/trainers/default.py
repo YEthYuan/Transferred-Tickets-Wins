@@ -455,7 +455,7 @@ def attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_ite
     ones = torch.ones((3,1,1))
     for zz in range(restarts):
         delta = torch.zeros_like(X).cuda()
-        for i in range(len(epsilon)):
+        for i in range(3):
             delta[:, i, :, :].uniform_(-epsilon, epsilon)
         delta.data = clamp(delta, lower_limit - X, upper_limit - X)
         delta.requires_grad = True

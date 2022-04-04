@@ -48,28 +48,26 @@ parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 parser.add_argument('--data', metavar='DIR', default='/home/sw99/datasets/',
                     help='path to dataset') # Caltech101
 
+parser.add_argument('--downstream', action='store_true')
+
 parser.add_argument('--set', type=str, default='caltech101', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet50)')
-# parser.add_argument('--epochs', default=10, type=int, metavar='N',
-#                     help='number of total epochs to run')
-parser.add_argument('--epochs', default=182, type=int, metavar='N',
+parser.add_argument('--epochs', default=10, type=int, metavar='N',
                     help='number of total epochs to run')
+
 parser.add_argument('-b', '--batch-size', default=256, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
                          'using Data Parallel or Distributed Data Parallel')
 
-# parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float, metavar='LR', help='initial learning rate', dest='lr') # ImageNet Batch 256
-parser.add_argument('--lr', '--learning-rate', default=0.1, type=float, metavar='LR', help='initial learning rate', dest='lr') # Downstream IMP
-# parser.add_argument('--decreasing_lr', default=None, help='decreasing strategy') # Imagenet upstream IMP
-parser.add_argument('--decreasing_lr', default='91,136', help='decreasing strategy') # Downstream IMP
-# parser.add_argument('--warmup', default=0, type=int, help='warm up epochs') # Imagenet upstream IMP
-parser.add_argument('--warmup', default=1, type=int, help='warm up epochs') # Downstream IMP
+parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float, metavar='LR', help='initial learning rate', dest='lr') # ImageNet Batch 256
+parser.add_argument('--decreasing_lr', default=None, help='decreasing strategy') # Imagenet upstream IMP
+parser.add_argument('--warmup', default=0, type=int, help='warm up epochs') # Imagenet upstream IMP
 parser.add_argument('--log_dir', default='runs', type=str)
 parser.add_argument('--name', default='R50_cal101_Linf_Eps4', type=str, help='experiment name')
 parser.add_argument('--model-path', type=str, default='/home/sw99/ResNet_ckpt/resnet50_linf_eps4.0.ckpt',
@@ -91,10 +89,9 @@ parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                     help='manual epoch number (useful on restarts)')
 parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
-# parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
-#                     metavar='W', help='weight decay (default: 1e-4)',
-#                     dest='weight_decay')                                      # Imagenet upstream IMP
-parser.add_argument('--weight_decay', default=2e-4, type=float, help='weight decay') # Downstream IMP
+parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
+                    metavar='W', help='weight decay (default: 1e-4)',
+                    dest='weight_decay')                                      # Imagenet upstream IMP
 parser.add_argument('-p', '--print-freq', default=50, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
@@ -107,9 +104,9 @@ parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
 
 # Adv params
-parser.add_argument('--attack_type', default='None', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
-parser.add_argument('--epsilon', default=2, type=int)
-parser.add_argument('--alpha', default=2.5, type=float, help='Step size')
+parser.add_argument('--attack_type', default='fgsm-rs', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
+parser.add_argument('--epsilon', default=4, type=int)
+parser.add_argument('--alpha', default=5, type=float, help='Step size')
 parser.add_argument('--attack_iters', default=1, type=int, help='Attack iterations')
 parser.add_argument('--constraint', default='L2', type=str, choices=['Linf', 'L2'])
 
@@ -137,6 +134,15 @@ def main():
 
 
 def main_worker(gpu, args):
+    if args.downstream:
+        # set up downstream params
+        args.epochs = 182
+        args.lr = 0.1
+        args.decreasing_lr = '91, 136'
+        args.warmup = 1
+        args.weight_decay = 2e-4
+        args.attack_type = None
+
     best_acc1 = 0.0
     best_epoch = 0
     natural_acc1_at_best_robustness = 0.0
