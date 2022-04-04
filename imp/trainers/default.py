@@ -386,9 +386,9 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
     upper_limit = ((1 - mu) / std)
     lower_limit = ((0 - mu) / std)
 
-    epsilon = (args.epsilon / 255.) / std
-    # alpha = (args.alpha / 255.) / std
-    alpha = (2 / 255.) / std
+    # epsilon = (args.epsilon / 255.) / std
+    alpha = (args.alpha / 255.) / std
+    # alpha = (2 / 255.) / std
     
     if args.constraint == 'Linf':
         epsilon = args.epsilon / 255.
