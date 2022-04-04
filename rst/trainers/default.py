@@ -78,7 +78,7 @@ def clamp(X, lower_limit, upper_limit):
     return torch.max(torch.min(X, upper_limit), lower_limit)
 
 
-def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
+def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer, log):
     batch_time = AverageMeter("Time", ":6.3f")
     data_time = AverageMeter("Data", ":6.3f")
     losses = AverageMeter("Loss", ":.3f")
@@ -239,7 +239,7 @@ def fgsm(gradz, step_size):
 global_noise_data = None
 
 
-def train_adv_free(train_loader, model, criterion, optimizer, epoch, args, writer):
+def train_adv_free(train_loader, model, criterion, optimizer, epoch, args, writer, log):
     global global_noise_data
 
     batch_time = AverageMeter("Time", ":6.3f")
@@ -471,7 +471,7 @@ def attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_ite
     return max_delta
 
 
-def train(train_loader, model, criterion, optimizer, epoch, args, writer):
+def train(train_loader, model, criterion, optimizer, epoch, args, writer, log):
     batch_time = AverageMeter("Time", ":6.3f")
     data_time = AverageMeter("Data", ":6.3f")
     losses = AverageMeter("Loss", ":.3f")
