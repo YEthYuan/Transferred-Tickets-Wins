@@ -112,6 +112,9 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer, lo
     
     mu = torch.tensor(mean).view(3,1,1).cuda()
     std = torch.tensor(std).view(3,1,1).cuda()
+    
+    upper_limit = ((1 - mu) / std)
+    lower_limit = ((0 - mu) / std)
 
     # epsilon = (args.epsilon / 255.) / std
     # alpha = (args.alpha / 255.) / std
