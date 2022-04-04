@@ -121,7 +121,7 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
         alpha = args.alpha / 255.
     elif args.constraint == 'L2':
         epsilon = args.epsilon
-        alpha = args.alpha
+        alpha = args.alpha / 255.
 
     ones = torch.ones_like(mu)
     # switch to train mode
@@ -172,8 +172,8 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
                 exit()
 
         elif args.attack_type == 'pgd':
-            for j in range(len(epsilon)):
-                delta[:, j, :, :].uniform_(-epsilon[j][0][0].item(), epsilon[j][0][0].item())
+            for j in range(len(mu)):
+                    delta[:, j, :, :].uniform_(-epsilon, epsilon)
             delta.data = clamp(delta, lower_limit - X, upper_limit - X)
             delta.requires_grad = True
 
@@ -183,10 +183,19 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
 
                 loss.backward()
 
-                grad = delta.grad.detach()
-                delta.data = clamp(delta + alpha * torch.sign(grad), -epsilon, epsilon)
-                delta.data = clamp(delta, lower_limit - X, upper_limit - X)
-                delta.grad.zero_()
+                if args.constraint == 'Linf':
+                    grad = delta.grad.detach()
+                    delta.data = clamp(delta + alpha * torch.sign(grad), -epsilon * ones, epsilon * ones)
+                    delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
+                elif args.constraint == 'L2':
+                    grad = delta.grad.detach()
+                    grad = normalize_by_pnorm(grad)
+                    delta.data = delta.data + batch_multiply(alpha, grad)
+                    delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
+                    delta.data = clamp_by_pnorm(delta.data, 2, epsilon)
+                else:
+                    print('Wrong Attack Constraint!')
+                    exit()
 
         else:
             print('Wrong attack type:', args.attack_type)
@@ -380,6 +389,13 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
     epsilon = (args.epsilon / 255.) / std
     # alpha = (args.alpha / 255.) / std
     alpha = (2 / 255.) / std
+    
+    if args.constraint == 'Linf':
+        epsilon = args.epsilon / 255.
+        alpha = 2 / 255.
+    elif args.constraint == 'L2':
+        epsilon = args.epsilon
+        alpha = 2 / 255.
 
     end = time.time()
     for i, (X, y) in tqdm.tqdm(
@@ -424,10 +440,11 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
 def attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_iters=20, restarts=1):
     max_loss = torch.zeros(y.shape[0]).cuda()
     max_delta = torch.zeros_like(X).cuda()
+    ones = torch.ones((3,1,1))
     for zz in range(restarts):
         delta = torch.zeros_like(X).cuda()
         for i in range(len(epsilon)):
-            delta[:, i, :, :].uniform_(-epsilon[i][0][0].item(), epsilon[i][0][0].item())
+            delta[:, i, :, :].uniform_(-epsilon, epsilon)
         delta.data = clamp(delta, lower_limit - X, upper_limit - X)
         delta.requires_grad = True
         for _ in range(attack_iters):
@@ -441,7 +458,7 @@ def attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_ite
             grad = delta.grad.detach()
             d = delta[index[0], :, :, :]
             g = grad[index[0], :, :, :]
-            d = clamp(d + alpha * torch.sign(g), -epsilon, epsilon)
+            d = clamp(d + alpha * torch.sign(g), -epsilon * ones, epsilon * ones)
             d = clamp(d, lower_limit - X[index[0], :, :, :], upper_limit - X[index[0], :, :, :])
             delta.data[index[0], :, :, :] = d
             delta.grad.zero_()
