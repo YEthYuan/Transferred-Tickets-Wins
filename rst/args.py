@@ -22,7 +22,7 @@ def parse_arguments():
     # General Config
     parser.add_argument("--data", help="path to dataset base directory", default="/home/yuanye/data")
     parser.add_argument("--optimizer", help="Which optimizer to use", default="sgd")
-    parser.add_argument("--set", help="name of dataset", type=str, default="CIFAR10")
+    parser.add_argument("--set", help="name of dataset", type=str, default="cifar10")
     parser.add_argument("-a", "--arch", metavar="ARCH", default="ResNet18", help="model architecture")
     parser.add_argument("--config", help="Config file to use (see configs dir)",
                         default='config_rst/resnet18-cifar-debug.yaml')
@@ -124,7 +124,8 @@ def parse_arguments():
         type=str,
         help="use pre-trained model",
     )
-    parser.add_argument('--pytorch-pretrained', action='store_true', help='If True, loads a Pytorch pretrained model.')
+    parser.add_argument('--pytorch-pretrained', action='store_true', default=True,
+                        help='If True, loads a Pytorch pretrained model.')
     parser.add_argument(
         "--seed", default=None, type=int, help="seed for initializing training. "
     )

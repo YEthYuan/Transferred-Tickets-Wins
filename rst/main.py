@@ -579,9 +579,9 @@ def get_model_dataset(args):
     # prepare model
     # model = models.__dict__[args.arch](num_classes=1000, norm=data_norm)
     if args.arch == 'ResNet18':
-        model = ResNet18(num_classes=1000, norm=data_norm)
+        model = ResNet18(pretrained=args.pytorch_pretrained, num_classes=1000, norm=data_norm)
     elif args.arch == 'ResNet50':
-        model = ResNet50(num_classes=1000, norm=data_norm)
+        model = ResNet50(pretrained=args.pytorch_pretrained, num_classes=1000, norm=data_norm)
     else:
         print('Wrong Model Arch')
         exit()

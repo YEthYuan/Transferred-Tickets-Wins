@@ -186,6 +186,7 @@ class ResNet(nn.Module):
 def ResNet18(pretrained=False, num_classes=1000, norm=None):
     model = ResNet(get_builder(), BasicBlock, [2, 2, 2, 2], num_classes=num_classes, normalize=norm)
     if pretrained:
+        print(" => Use pytorch pretrained model")
         state_dict = load_state_dict_from_url(model_urls['resnet18'],
                                               progress=True)
         model.load_state_dict(state_dict, strict=False)
@@ -197,6 +198,7 @@ def ResNet34(pretrained=False, num_classes=1000, norm=None):
 def ResNet50(pretrained=False, num_classes=1000, norm=None):
     model = ResNet(get_builder(), Bottleneck, [3, 4, 6, 3], num_classes=num_classes, normalize=norm)
     if pretrained:
+        print(" => Use pytorch pretrained model")
         state_dict = load_state_dict_from_url(model_urls['resnet50'],
                                               progress=True)
         model.load_state_dict(state_dict, strict=False)
