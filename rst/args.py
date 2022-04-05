@@ -124,6 +124,7 @@ def parse_arguments():
         type=str,
         help="use pre-trained model",
     )
+    parser.add_argument('--pytorch-pretrained', action='store_true', help='If True, loads a Pytorch pretrained model.')
     parser.add_argument(
         "--seed", default=None, type=int, help="seed for initializing training. "
     )

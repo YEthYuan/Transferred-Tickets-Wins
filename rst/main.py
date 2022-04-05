@@ -47,6 +47,9 @@ def main():
         args.prune_rate = args.prune_percent / 100
         print("current prune_rate=", args.prune_rate)
 
+    if args.pytorch_pretrained:
+        args.pretrained = None
+
     if args.seed is not None:
         random.seed(args.seed)
         torch.manual_seed(args.seed)
