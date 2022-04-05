@@ -2,6 +2,8 @@ import time
 import torch
 import torch.nn.functional as F
 import tqdm
+import abc
+
 from robustness.tools.helpers import has_attr
 
 from utils.eval_utils import accuracy
@@ -100,10 +102,10 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer, lo
     if args.set == 'ImageNet':
         mean = imagenet_mean
         std = imagenet_std
-    elif args.set == 'SVHN':
+    elif args.set == 'svhn':
         mean = svhn_mean
         std = svhn_std
-    elif 'CIFAR' in args.set:
+    elif 'cifar' in args.set:
         mean = cifar_mean
         std = cifar_std
     else:
@@ -276,10 +278,10 @@ def train_adv_free(train_loader, model, criterion, optimizer, epoch, args, write
     if args.set == 'ImageNet':
         mean = imagenet_mean
         std = imagenet_std
-    elif args.set == 'SVHN':
+    elif args.set == 'svhn':
         mean = svhn_mean
         std = svhn_std
-    elif 'CIFAR' in args.set:
+    elif 'cifar' in args.set:
         mean = cifar_mean
         std = cifar_std
     else:
@@ -382,10 +384,10 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
     if args.set == 'ImageNet':
         mean = imagenet_mean
         std = imagenet_std
-    elif args.set == 'SVHN':
+    elif args.set == 'svhn':
         mean = svhn_mean
         std = svhn_std
-    elif 'CIFAR' in args.set:
+    elif 'cifar' in args.set:
         mean = cifar_mean
         std = cifar_std
     else:
