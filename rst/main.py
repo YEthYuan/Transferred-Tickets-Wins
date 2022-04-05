@@ -6,6 +6,8 @@ import shutil
 import math
 from collections import OrderedDict
 
+import numpy as np
+from robustness.tools import helpers
 from torch.utils.tensorboard import SummaryWriter
 import torch
 import torch.nn as nn
@@ -14,6 +16,7 @@ import torch.backends.cudnn as cudnn
 import torch.optim
 import torch.utils.data
 import torch.utils.data.distributed
+from tqdm import tqdm
 
 from utils import builder
 from utils.conv_type import FixedSubnetConv, SampleSubnetConv
@@ -33,10 +36,9 @@ import logging
 from args import args
 import importlib
 
-import data
-import models
-
 from utils.builder import get_builder
+from data.dataset import *
+from models import *
 
 
 def main():
@@ -76,10 +78,32 @@ def main_worker(args):
         args.epochs = int(math.ceil(args.epochs / args.n_repeats))
 
     train, validate, validate_adv, modifier = get_trainer(args)
-    data = get_dataset(args)
+    model, train_loader, val_loader = get_model_dataset(args)
+    # data = get_dataset(args)
+    #
+    # # create model and optimizer
+    # model = get_model(args, data.data_norm)
 
-    # create model and optimizer
-    model = get_model(args, data.data_norm)
+    if args.per_class_accuracy:
+        assert args.set in ['pets', 'caltech101', 'flowers'], \
+            f'Per-class accuracy not supported for the {args.set} dataset.'
+
+        # VERY IMPORTANT
+        # We report the per-class accuracy using the validation
+        # set distribution. So ignore the training accuracy (as you will see it go
+        # beyond 100. Don't freak out, it doesn't really capture anything),
+        # just look at the validation accuarcy
+        log.info("[INIT] => using per_class_accuracy")
+        log.info(
+            """
+                          # VERY IMPORTANT
+        # We report the per-class accuracy using the validation
+        # set distribution. So ignore the training accuracy (as you will see it go
+        # beyond 100. Don't freak out, it doesn't really capture anything),
+        # just look at the validation accuracy
+            """
+        )
+        args.custom_accuracy = get_per_class_accuracy(args, val_loader)
 
     if args.task != 'search':
         if args.pretrained is None:
@@ -137,34 +161,34 @@ def main_worker(args):
     best_train_acc1 = 0.0
     best_train_acc5 = 0.0
 
-    natural_acc1_at_best_robustness = None
+    # natural_acc1_at_best_robustness = None
 
     if args.automatic_resume:
         args.resume = ckpt_base_dir / 'model_latest.pth'
         if os.path.isfile(args.resume):
-            best_acc1, natural_acc1_at_best_robustness = resume(args, model, optimizer)
+            best_acc1 = resume(args, model, optimizer)
         else:
             print('Train from scratch.')
 
     elif args.resume:
-        best_acc1, natural_acc1_at_best_robustness = resume(args, model, optimizer)
+        best_acc1 = resume(args, model, optimizer)
 
     # Data loading code
     if args.evaluate:
         if args.attack_type != 'None':
             acc1, acc5 = validate_adv(
-                data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
+                val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
             )
 
             natural_acc1, natural_acc5 = validate(
-                data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
+                val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
             )
 
             log.info('Natural Acc: %.2f, Robust Acc: %.2f', natural_acc1, acc1)
 
         else:
             acc1, acc5 = validate(
-                data.val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
+                val_loader, model, criterion, args, writer=None, epoch=args.start_epoch
             )
 
             log.info('Natural Acc: %.2f', acc1)
@@ -193,7 +217,7 @@ def main_worker(args):
             "best_acc5": best_acc5,
             "best_train_acc1": best_train_acc1,
             "best_train_acc5": best_train_acc5,
-            'natural_acc1_at_best_robustness': natural_acc1_at_best_robustness,
+            # 'natural_acc1_at_best_robustness': natural_acc1_at_best_robustness,
             "optimizer": optimizer.state_dict(),
             "curr_acc1": acc1 if acc1 else "Not evaluated",
         },
@@ -215,7 +239,7 @@ def main_worker(args):
         # train for one epoch
         start_train = time.time()
         train_acc1, train_acc5 = train(
-            data.train_loader, model, criterion, optimizer, epoch, args, writer=writer, log=log
+            train_loader, model, criterion, optimizer, epoch, args, writer=writer, log=log
         )
 
         if args.discard_mode:
@@ -240,11 +264,13 @@ def main_worker(args):
             # evaluate on validation set
             start_validation = time.time()
 
-            if args.attack_type != 'None':
-                acc1, acc5 = validate_adv(data.val_loader, model, criterion, args, writer, epoch)
-                natural_acc1, natural_acc5 = validate(data.val_loader, model, criterion, args, writer, epoch)
-            else:
-                acc1, acc5 = validate(data.val_loader, model, criterion, args, writer, epoch)
+            # if args.attack_type != 'None':
+            #     acc1, acc5 = validate_adv(data.val_loader, model, criterion, args, writer, epoch)
+            #     natural_acc1, natural_acc5 = validate(data.val_loader, model, criterion, args, writer, epoch)
+            # else:
+            #     acc1, acc5 = validate(data.val_loader, model, criterion, args, writer, epoch)
+
+            acc1, acc5 = validate(val_loader, model, criterion, args, writer, epoch)
 
             validation_time.update((time.time() - start_validation) / 60)
 
@@ -255,8 +281,8 @@ def main_worker(args):
             best_train_acc1 = max(train_acc1, best_train_acc1)
             best_train_acc5 = max(train_acc5, best_train_acc5)
 
-            if is_best and args.attack_type != 'None':
-                natural_acc1_at_best_robustness = natural_acc1
+            # if is_best and args.attack_type != 'None':
+            #     natural_acc1_at_best_robustness = natural_acc1
 
             if is_best:
                 log.info(f"==> New best, saving at {ckpt_base_dir / 'model_best.pth'}")
@@ -271,7 +297,7 @@ def main_worker(args):
                         "best_acc5": best_acc5,
                         "best_train_acc1": best_train_acc1,
                         "best_train_acc5": best_train_acc5,
-                        "natural_acc1_at_best_robustness": natural_acc1_at_best_robustness,
+                        # "natural_acc1_at_best_robustness": natural_acc1_at_best_robustness,
                         "optimizer": optimizer.state_dict(),
                         "curr_acc1": acc1,
                         "curr_acc5": acc5,
@@ -281,12 +307,14 @@ def main_worker(args):
                     save=False,
                 )
 
-            if args.attack_type != 'None':
-                log.info(
-                    'Epoch[%d][%d] curr natural acc: %.2f, natural acc at best robustness: %.2f \n curr robust acc: %.2f, best robust acc: %.2f',
-                    args.epochs, epoch, natural_acc1, natural_acc1_at_best_robustness, acc1, best_acc1)
-            else:
-                log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
+            # if args.attack_type != 'None':
+            #     log.info(
+            #         'Epoch[%d][%d] curr natural acc: %.2f, natural acc at best robustness: %.2f \n curr robust acc: %.2f, best robust acc: %.2f',
+            #         args.epochs, epoch, natural_acc1, natural_acc1_at_best_robustness, acc1, best_acc1)
+            # else:
+            #     log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
+
+            log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
 
         elif 'ImageNet' in args.set:
             save_checkpoint(
@@ -298,7 +326,7 @@ def main_worker(args):
                     "best_acc5": best_acc5,
                     "best_train_acc1": best_train_acc1,
                     "best_train_acc5": best_train_acc5,
-                    "natural_acc1_at_best_robustness": natural_acc1_at_best_robustness,
+                    # "natural_acc1_at_best_robustness": natural_acc1_at_best_robustness,
                     "optimizer": optimizer.state_dict(),
                     "curr_acc1": None,
                     "curr_acc5": None,
@@ -399,7 +427,7 @@ def resume(args, model, optimizer):
             args.start_epoch = checkpoint["epoch"]
 
         best_acc1 = checkpoint["best_acc1"]
-        natural_acc1_at_best_robustness = checkpoint["natural_acc1_at_best_robustness"]
+        # natural_acc1_at_best_robustness = checkpoint["natural_acc1_at_best_robustness"]
 
         model.load_state_dict(checkpoint["state_dict"])
 
@@ -407,7 +435,8 @@ def resume(args, model, optimizer):
 
         print(f"=> Loaded checkpoint '{args.resume}' (epoch {checkpoint['epoch']})")
 
-        return best_acc1, natural_acc1_at_best_robustness
+        return best_acc1
+        # return best_acc1, natural_acc1_at_best_robustness
     else:
         print(f"=> No checkpoint found at '{args.resume}'")
         exit()
@@ -456,31 +485,103 @@ def pretrained(args, model):
             m.set_subnet()
 
 
-def get_dataset(args):
-    print(f"=> Getting {args.set} dataset")
-    dataset = getattr(data, args.set)(args)
+# def get_dataset(args):
+#     print(f"=> Getting {args.set} dataset")
+#     dataset = getattr(data, args.set)(args)
+#
+#     return dataset
+#
+#
+# def get_model(args, data_norm):
+#     if args.first_layer_dense:
+#         args.first_layer_type = "DenseConv"
+#
+#     print("=> Creating model '{}'".format(args.arch))
+#
+#     if args.set == 'ImageNet' or args.set == 'TinyImageNet':
+#         args.classes = 1000
+#     elif args.set == 'CIFAR100':
+#         args.classes = 100
+#     elif args.set == 'CIFAR10':
+#         args.classes = 10
+#
+#     if args.set == 'ImageNet':
+#         print(data_norm)
+#         model = models.__dict__[args.arch](num_classes=1000, norm=data_norm)
+#     else:
+#         model = models.__dict__[args.arch](num_classes=1000)
+#
+#     # applying sparsity to the network
+#     if (
+#             args.conv_type != "DenseConv"
+#             and args.conv_type != "SampleSubnetConv"
+#             and args.conv_type != "ContinuousSparseConv"
+#     ):
+#         if args.prune_rate < 0:
+#             raise ValueError("Need to set a positive prune rate")
+#
+#         set_model_prune_rate(model, prune_rate=args.prune_rate)
+#         print(
+#             f"=> Rough estimate model params {sum(int(p.numel() * (1 - args.prune_rate)) for n, p in model.named_parameters() if not n.endswith('scores'))}"
+#         )
+#
+#     # freezing the weights if we are only doing subnet training
+#     # if args.freeze_weights:
+#     #     freeze_model_weights(model)
+#
+#     return model
 
-    return dataset
 
-
-def get_model(args, data_norm):
-    if args.first_layer_dense:
-        args.first_layer_type = "DenseConv"
-
-    print("=> Creating model '{}'".format(args.arch))
-
-    if args.set == 'ImageNet' or args.set == 'TinyImageNet':
-        args.classes = 1000
-    elif args.set == 'CIFAR100':
-        args.classes = 100
-    elif args.set == 'CIFAR10':
+def get_model_dataset(args):
+    # prepare dataset
+    if args.set == 'cifar10':
         args.classes = 10
-
-    if args.set == 'ImageNet':
-        print(data_norm)
-        model = models.__dict__[args.arch](num_classes=1000, norm=data_norm)
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = cifar10_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'cifar100':
+        args.classes = 100
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = cifar100_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'svhn':
+        args.classes = 10
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = svhn_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'ImageNet':
+        args.classes = 1000
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = imagenet_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'caltech101':
+        args.classes = 102
+        args.per_class_accuracy = True
+        train_loader, data_norm, test_loader = caltech101_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'dtd':
+        args.classes = 47
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = dtd_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'flowers':
+        args.classes = 102
+        args.per_class_accuracy = True
+        train_loader, data_norm, test_loader = flowers_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'pets':
+        args.classes = 37
+        args.per_class_accuracy = True
+        train_loader, data_norm, test_loader = pets_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'sun':
+        args.classes = 397
+        args.per_class_accuracy = False
+        train_loader, data_norm, test_loader = SUN397_dataloaders(args, use_val=False, norm=False)
     else:
-        model = models.__dict__[args.arch](num_classes=1000)
+        raise ValueError("Unknown Dataset")
+
+    # prepare model
+    # model = models.__dict__[args.arch](num_classes=1000, norm=data_norm)
+    if args.arch == 'ResNet18':
+        model = ResNet18(num_classes=1000, norm=data_norm)
+    elif args.arch == 'ResNet50':
+        model = ResNet50(num_classes=1000, norm=data_norm)
+    else:
+        print('Wrong Model Arch')
+        exit()
 
     # applying sparsity to the network
     if (
@@ -496,11 +597,7 @@ def get_model(args, data_norm):
             f"=> Rough estimate model params {sum(int(p.numel() * (1 - args.prune_rate)) for n, p in model.named_parameters() if not n.endswith('scores'))}"
         )
 
-    # freezing the weights if we are only doing subnet training
-    # if args.freeze_weights:
-    #     freeze_model_weights(model)
-
-    return model
+    return model, train_loader, test_loader
 
 
 def get_optimizer(args, model):
@@ -682,6 +779,55 @@ def change_fc_layer(args, model):
     print(f"Change the fc layer to fit in dataset: {args.set}")
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs, args.classes)
+
+
+def get_per_class_accuracy(args, loader):
+    '''Returns the custom per_class_accuracy function. When using this custom function
+    look at only the validation accuracy. Ignore trainig set accuracy.
+    '''
+
+    def _get_class_weights(args, loader):
+        '''Returns the distribution of classes in a given dataset.
+        '''
+        # if args.dataset in ['pets', 'flowers']:
+        #     targets = loader.dataset.targets
+        #
+        # elif args.dataset in ['caltech101', 'caltech256']:
+        #     targets = np.array([loader.dataset.ds.dataset.y[idx]
+        #                         for idx in loader.dataset.ds.indices])
+        #
+        # elif args.dataset == 'aircraft':
+        #     targets = [s[1] for s in loader.dataset.samples]
+        targets = []
+        targets = np.array(targets)
+        print('Calculating the class weights ... ... ')
+        for _, target in tqdm(loader):
+            targets = np.append(targets, target.numpy())
+
+        counts = np.unique(targets, return_counts=True)[1]
+        class_weights = counts.sum() / (counts * len(counts))
+        print("class weight: ", class_weights)
+        return torch.Tensor(class_weights)
+
+    class_weights = _get_class_weights(args, loader)
+
+    def custom_acc(logits, labels):
+        '''Returns the top1 accuracy, weighted by the class distribution.
+        This is important when evaluating an unbalanced dataset.
+        '''
+        batch_size = labels.size(0)
+        maxk = min(5, logits.shape[-1])
+        prec1, _ = helpers.accuracy(
+            logits, labels, topk=(1, maxk), exact=True)
+
+        normal_prec1 = prec1.sum(0, keepdim=True).mul_(100 / batch_size)
+        weighted_prec1 = prec1 * class_weights[labels.cpu()].cuda()
+        weighted_prec1 = weighted_prec1.sum(
+            0, keepdim=True).mul_(100 / batch_size)
+
+        return weighted_prec1, normal_prec1
+
+    return custom_acc
 
 
 if __name__ == "__main__":
