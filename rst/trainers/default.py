@@ -125,7 +125,7 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer, lo
         epsilon = args.epsilon
         alpha = args.alpha / 255.
 
-    ones = torch.ones_like(mu)
+    ones = torch.ones_like(mu).cuda()
 
     # switch to train mode
     model.train()
@@ -417,7 +417,7 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
         X = X.cuda()
         y = y.cuda()
 
-        pgd_delta = attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_iters=20, restarts=1)
+        pgd_delta = attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_iters=3, restarts=1)
         # compute output
         output = model(X + pgd_delta)
 
@@ -452,7 +452,7 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
 def attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_iters=20, restarts=1):
     max_loss = torch.zeros(y.shape[0]).cuda()
     max_delta = torch.zeros_like(X).cuda()
-    ones = torch.ones((3,1,1))
+    ones = torch.ones((3,1,1)).cuda()
     for zz in range(restarts):
         delta = torch.zeros_like(X).cuda()
         for i in range(3):

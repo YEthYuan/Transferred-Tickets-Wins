@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export MIOPEN_USER_DB_PATH=/scratch/yf22/ 
 p=10
 until [ ! $p -lt 100 ]
 do
@@ -15,8 +15,8 @@ do
     --task search \
     --set ImageNet \
     --data /scratch/cl114/ILSVRC/Data/CLS-LOC/ \
-    --pretrained /home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt \
-    --name img-Linf2_weight-adv_search \
+    --pretrained /home/yf22/ResNet_ckpt/resnet18_linf_eps4.0.ckpt \
+    --name img-Linf4_weight-adv_search \
     --config config_rst/resnet18-ukn-unsigned-imagenet.yaml \
     --epochs 90 \
     --optimizer sgd \
@@ -28,8 +28,8 @@ do
     --momentum 0.875 \
     --label-smoothing 0.1 \
     --workers 32 \
-    --epsilon 2 \
-    --alpha 2.5 \
+    --epsilon 4 \
+    --alpha 5 \
     --attack_iters 1 \
     --constraint Linf
   p=`expr $p + 10`
