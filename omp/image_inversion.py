@@ -1,12 +1,14 @@
 import argparse
 import copy
 import os
+import random
 
 import cox.store
 import dill
 import numpy as np
 import torch as ch
 from cox import utils
+from robustness.tools.vis_tools import show_image_row, show_image_column
 from tqdm import tqdm
 
 from my_robustness import datasets, defaults, model_utils, train, attacker
@@ -34,18 +36,20 @@ parser.add_argument('--attack-lr', type=str, help='step size for PGD', default='
 # Custom arguments
 parser.add_argument('--dataset', type=str, default='flowers',
                     help='Dataset (Overrides the one in robustness.defaults)')
+parser.add_argument('--dataset_seed', type=str, default='caltech101',
+                    help='Dataset (Overrides the one in robustness.defaults)')
 parser.add_argument('--data', type=str, default='/home/yuanye/data')
 parser.add_argument('--out-dir', type=str, default='runs')
 parser.add_argument('--exp-name', type=str, default='test-debug-run')
 parser.add_argument('--arch', type=str, default='resnet18')
-# parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_l2_eps3.ckpt')
-parser.add_argument('--model-path', type=str, default=None)
+parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_l2_eps3.ckpt')
+# parser.add_argument('--model-path', type=str, default=None)
 parser.add_argument('--mask-save-dir', type=str, default=None)
 parser.add_argument('--epochs', type=int, default=20)
 parser.add_argument('--opt', type=str, default='sgd', help='choose sgd or adam')
 parser.add_argument('--lr', type=float, default=0.01)
 parser.add_argument('--step-lr', type=int, default=30)
-parser.add_argument('--batch-size', type=int, default=64)
+parser.add_argument('--batch-size', type=int, default=10)
 parser.add_argument('--weight-decay', type=float, default=5e-4)
 parser.add_argument('--prune_rate', type=float, default=0)
 parser.add_argument('--prune_percent', type=int, default=None)
@@ -53,18 +57,19 @@ parser.add_argument('--structural_prune', action='store_true',
                     help='Use the structural pruning method (currently channel pruning)')
 parser.add_argument('--adv-train', type=int, default=0)
 parser.add_argument('--adv-eval', type=int, default=0)
+parser.add_argument('--seed', type=int, default=999)
 parser.add_argument('--workers', type=int, default=0)
 parser.add_argument('--conv1', action='store_true',
                     help="If true, prune the conv1, if false, skip the conv1")
 parser.add_argument('--resume', action='store_true',
                     help='Whether to resume or not (Overrides the one in robustness.defaults)')
-parser.add_argument('--pytorch-pretrained', action='store_true',
+parser.add_argument('--pytorch-pretrained', action='store_true', default=False,
                     help='If True, loads a Pytorch pretrained model.')
 parser.add_argument('--only-extract-mask', action='store_true',
                     help='If True, only extract the ticket from Imagenet pretrained model')
 parser.add_argument('--cifar10-cifar10', action='store_true',
                     help='cifar10 to cifar10 transfer')
-parser.add_argument('--shuffle_test', action='store_true')
+parser.add_argument('--shuffle_test', action='store_true', default=True)
 parser.add_argument('--subset', type=int, default=None,
                     help='number of training data to use from the dataset')
 parser.add_argument('--no-tqdm', type=int, default=1,
@@ -79,7 +84,46 @@ parser.add_argument('--per-class-accuracy', action='store_true', help='Report th
                                                                       'Can be used only with pets, caltech101, caltech256, aircraft, and flowers.')
 
 
+# Custom loss for inversion
+def inversion_loss(model, inp, targ):
+    _, rep = model(inp, with_latent=True, fake_relu=True)
+    loss = ch.div(ch.norm(rep - targ, dim=1), ch.norm(targ, dim=1))
+    return loss, None
+
+
+DATA_PATH_DICT = {
+    'CIFAR': '/home/yuanye/data/cifar10',
+    'RestrictedImageNet': '/scratch/engstrom_scratch/imagenet',
+    'ImageNet': '/scratch/engstrom_scratch/imagenet',
+    'H2Z': '/scratch/datasets/A2B/horse2zebra',
+    'A2O': '/scratch/datasets/A2B/apple2orange',
+    'S2W': '/scratch/datasets/A2B/summer2winter_yosemite'
+}
+# PGD parameters
+kwargs = {
+    'custom_loss': inversion_loss,
+    'constraint': '2',
+    'eps': 10000,
+    'step_size': 1,
+    'iterations': 10000,
+    'do_tqdm': True,
+    'targeted': True,
+    'use_best': False
+}
+# Constants
+NOISE_SCALE = 20
+
+DATA_SHAPE = 224  # Image size (fixed for dataset)
+# DATA_SHAPE = 32 if DATA == 'CIFAR' else 224 # Image size (fixed for dataset)
+REPRESENTATION_SIZE = 2048  # Size of representation vector (fixed for model)
+
+
 def main(args, store):
+    if args.seed is not None:
+        random.seed(args.seed)
+        ch.manual_seed(args.seed)
+        ch.cuda.manual_seed(args.seed)
+        ch.cuda.manual_seed_all(args.seed)
     '''Given arguments and a cox store, trains as a model. Check out the 
     argparse object in this file for argument options.
     '''
@@ -90,22 +134,11 @@ def main(args, store):
     if args.pytorch_pretrained:
         args.model_path = None
 
-    if args.only_extract_mask:
-        args.dataset = 'imagenet'
-        ds = get_dataset(args)
-    else:
-        ds, train_loader, validation_loader = get_dataset_and_loaders(args)
-
-    if args.per_class_accuracy:
-        assert args.dataset in ['pets', 'caltech101', 'caltech256', 'flowers', 'aircraft'], \
-            f'Per-class accuracy not supported for the {args.dataset} dataset.'
-
-        # VERY IMPORTANT
-        # We report the per-class accuracy using the validation
-        # set distribution. So ignore the training accuracy (as you will see it go
-        # beyond 100. Don't freak out, it doesn't really capture anything),
-        # just look at the validation accuarcy
-        args.custom_accuracy = get_per_class_accuracy(args, validation_loader)
+    ds, train_loader, validation_loader = get_dataset_and_loaders(args, args.dataset, batch_size=1)
+    data_iterator = enumerate(validation_loader)
+    ds_seed, train_loader_seed, validation_loader_seed = get_dataset_and_loaders(args, args.dataset_seed,
+                                                                                 batch_size=args.batch_size)
+    data_iterator_seed = enumerate(validation_loader_seed)
 
     model, checkpoint = get_model(args, ds)
     check_sparsity(model, use_mask=False, conv1=args.conv1)
@@ -126,49 +159,28 @@ def main(args, store):
     current_mask = extract_mask(model.state_dict())
     remove_prune(model, conv1=args.conv1)
 
-    if args.only_extract_mask:
-        sd_info = {
-            'model': model.state_dict(),
-            'mask': current_mask,
-            'prune_rate': args.prune_rate,
-            'orig_model_name': args.model_path
-        }
-        ckpt_save_path = os.path.join(args.mask_save_dir, ("nat" if args.pytorch_pretrained else "adv") + (
-            "_s" if args.structural_prune else "_uns") + f"_pr{args.prune_rate}_ticket_ImageNet.pth")
-        ch.save(sd_info, ckpt_save_path)
-        return
+    model.eval()
 
-    if args.mask_save_dir:
-        sd_info = {
-            'model': model.state_dict(),
-            'mask': current_mask,
-            'prune_rate': args.prune_rate,
-            'orig_model_name': args.model_path
-        }
-        ckpt_save_path = os.path.join(args.mask_save_dir, ("nat" if args.pytorch_pretrained else "adv") + (
-            "_s" if args.structural_prune else "_uns") + f"_pr{args.prune_rate}_ticket.pth")
-        ch.save(sd_info, ckpt_save_path)
+    for i in range(19):
+        _, (im, targ) = next(data_iterator)  # Images to invert
+    show_image_column([im.cpu()], [r"Target ($x_2$)"], fontsize=22, filename="svg/target.svg")
+    for i in range(1):
+        _, (im_n, targ) = next(data_iterator_seed)
+    im = im.repeat(args.batch_size, 1, 1, 1)
+    show_image_row([im_n.cpu()], [r"Source ($x_1$)"],
+                fontsize=22, filename="svg/source.svg")
+    # show_image_column([im.cpu()], [r"Target ($x_2$)"], fontsize=22, filename=f"{args.prune_rate}_target.svg")
 
-    model, checkpoint = get_model(args, ds)
+    with ch.no_grad():
+        (_, rep), _ = model(im.cuda(), with_latent=True)  # Corresponding representation
 
-    if args.eval_only:
-        return train.eval_model(args, model, current_mask, validation_loader, store=store)
+    # im_n = ch.randn_like(im) / NOISE_SCALE + 0.5  # Seed for inversion (x_0)
 
-    update_params = freeze_model(model, freeze_level=args.freeze_level)
-    # update_params = None
+    _, xadv = model(im_n.cuda(), rep.clone(), make_adv=True, **kwargs)  # Image inversion using PGD
 
-    print(f"Dataset: {args.dataset} | Model: {args.arch}")
-    best_prec = train.train_model(args, model, (train_loader, validation_loader), mask=current_mask, store=store,
-                                  checkpoint=checkpoint, update_params=update_params)
-
-    check_sparsity(model, use_mask=False, conv1=args.conv1)
-    outp_str = ("Structural " if args.structural_prune else "Unstructural ") + (
-        "nat" if args.pytorch_pretrained else "adv") + f" {args.prune_rate} best prec {best_prec} \n"
-    print(outp_str)
-    file_name = f"{args.dataset}_{args.arch}_{'s' if args.structural_prune else 'uns'}_{'linear' if args.freeze_level == 4 else 'finetune'}.txt"
-    f = open(file_name, "a+")
-    f.write(outp_str)
-    f.close()
+    show_image_row([xadv.detach().cpu()],
+                   [f"Robust {1-args.prune_rate}"],
+                   fontsize=22, filename=f"svg/{args.prune_rate}_result.svg")
 
 
 def get_per_class_accuracy(args, loader):
@@ -230,24 +242,25 @@ def get_dataset(args):
     return ds
 
 
-def get_dataset_and_loaders(args):
+def get_dataset_and_loaders(args, dataset, batch_size):
     '''Given arguments, returns a datasets object and the train and validation loaders.
     '''
-    if args.dataset in ['pets', 'caltech101', 'caltech256', 'flowers', 'aircraft']:
+    if dataset in ['pets', 'caltech101', 'caltech256', 'flowers', 'aircraft']:
         args.per_class_accuracy = True
     else:
         args.per_class_accuracy = False
-    if args.dataset in ['imagenet', 'stylized_imagenet']:
+    if dataset in ['imagenet', 'stylized_imagenet']:
         ds = datasets.ImageNet(args.data)
         train_loader, validation_loader = ds.make_loaders(
-            only_val=args.eval_only, batch_size=args.batch_size, workers=args.workers)
+            only_val=args.eval_only, batch_size=batch_size, workers=args.workers)
     elif args.cifar10_cifar10:
         ds = datasets.CIFAR('/tmp')
         train_loader, validation_loader = ds.make_loaders(
-            only_val=args.eval_only, batch_size=args.batch_size, workers=args.workers)
+            only_val=args.eval_only, batch_size=batch_size, workers=args.workers)
     else:
         ds, (train_loader, validation_loader) = transfer_datasets.make_loaders(args=args,
-            ds=args.dataset, batch_size=args.batch_size, workers=args.workers, subset=args.subset)
+                                                                               ds=dataset, batch_size=batch_size,
+                                                                               workers=args.workers, subset=args.subset)
         if type(ds) == int:
             new_ds = datasets.CIFAR("/tmp")
             new_ds.num_classes = ds
