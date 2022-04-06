@@ -319,25 +319,24 @@ def main_worker(args):
 
             log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
 
-        elif 'ImageNet' in args.set:
-            save_checkpoint(
-                {
-                    "epoch": epoch + 1,
-                    "arch": args.arch,
-                    "state_dict": model.state_dict(),
-                    "best_acc1": best_acc1,
-                    "best_acc5": best_acc5,
-                    "best_train_acc1": best_train_acc1,
-                    "best_train_acc5": best_train_acc5,
-                    # "natural_acc1_at_best_robustness": natural_acc1_at_best_robustness,
-                    "optimizer": optimizer.state_dict(),
-                    "curr_acc1": None,
-                    "curr_acc5": None,
-                },
-                is_best=False,
-                filename=ckpt_base_dir / f"epoch_{epoch}.state",
-                save=False,
-            )
+        save_checkpoint(
+            {
+                "epoch": epoch + 1,
+                "arch": args.arch,
+                "state_dict": model.state_dict(),
+                "best_acc1": best_acc1,
+                "best_acc5": best_acc5,
+                "best_train_acc1": best_train_acc1,
+                "best_train_acc5": best_train_acc5,
+                # "natural_acc1_at_best_robustness": natural_acc1_at_best_robustness,
+                "optimizer": optimizer.state_dict(),
+                "curr_acc1": None,
+                "curr_acc5": None,
+            },
+            is_best=False,
+            filename=ckpt_base_dir / f"checkpoint.state",
+            save=False,
+        )
 
         # if args.conv_type == "SampleSubnetConv":
         #     count = 0

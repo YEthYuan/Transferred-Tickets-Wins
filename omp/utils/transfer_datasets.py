@@ -12,7 +12,7 @@ from torchvision.datasets import CIFAR10, CIFAR100, SVHN, ImageFolder, Caltech10
 from .caltech import Caltech256
 
 from . import aircraft, food_101, dtd
-from torch.utils.data import DataLoader, Subset, Dataset, ConcatDataset
+from torch.utils.data import DataLoader, Subset, Dataset
 from torchvision.datasets.utils import check_integrity, download_and_extract_archive, download_url, verify_str_arg
 
 import numpy as np
@@ -182,9 +182,7 @@ def make_loaders_oxford(args, batch_size, workers):
         transforms.ToTensor(),
         normalize
     ])
-    _train_set = Flowers102(args.data, split='train', transform=train_transform, download=True)
-    _val_set = Flowers102(args.data, split='val', transform=train_transform, download=True)
-    train_set = ConcatDataset([_train_set, _val_set])
+    train_set = Flowers102(args.data, split='train', transform=train_transform, download=True)
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=args.workers,
                               pin_memory=True)
 
@@ -298,9 +296,7 @@ def make_loaders_dtd(args, batch_size, workers):
         transforms.ToTensor(),
         normalize
     ])
-    _train_set = DTD(args.data, split='train', transform=train_transform, download=True)
-    _val_set = DTD(args.data, split='val', transform=train_transform, download=True)
-    train_set = ConcatDataset([_train_set, _val_set])
+    train_set = DTD(args.data, split='train', transform=train_transform, download=True)
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=args.workers,
                               pin_memory=True)
 
@@ -518,7 +514,7 @@ class Flowers102(VisionDataset):
         self._labels = []
         self._image_files = []
         for image_id in image_ids:
-            self._labels.append(image_id_to_label[image_id])
+            self._labels.append(image_id_to_label[image_id] - 1)
             self._image_files.append(self._images_folder / f"image_{image_id:05d}.jpg")
 
     def __len__(self) -> int:
