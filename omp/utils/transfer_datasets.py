@@ -12,7 +12,7 @@ from torchvision.datasets import CIFAR10, CIFAR100, SVHN, ImageFolder, Caltech10
 from .caltech import Caltech256
 
 from . import aircraft, food_101, dtd
-from torch.utils.data import DataLoader, Subset, Dataset, ConcatDataset
+from torch.utils.data import DataLoader, Subset, Dataset
 from torchvision.datasets.utils import check_integrity, download_and_extract_archive, download_url, verify_str_arg
 
 import numpy as np
@@ -66,7 +66,7 @@ def make_loaders_pets(args, batch_size, workers):
     ])
     train_set = OxfordIIITPet(args.data, split='trainval', target_types='category', transform=train_transform,
                               download=True)
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=args.workers,
                               pin_memory=True)
 
     test_transform = transforms.Compose([
@@ -78,7 +78,7 @@ def make_loaders_pets(args, batch_size, workers):
     ])
     test_set = OxfordIIITPet(args.data, split='test', transform=test_transform,
                              download=True)
-    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=args.shuffle_test, num_workers=args.workers,
                              pin_memory=True)
 
     return ds, (train_loader, test_loader)
@@ -104,7 +104,7 @@ def make_loaders_SUN(args, batch_size, workers):
     ])
     train_path = os.path.join(args.data, 'train')
     train_set = ImageFolder(train_path, transform=train_transform)
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=args.workers,
                               pin_memory=True)
 
     test_transform = transforms.Compose([
@@ -119,7 +119,7 @@ def make_loaders_SUN(args, batch_size, workers):
         test_path = os.path.join(args.data, 'test')
 
     test_set = ImageFolder(test_path, transform=test_transform)
-    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=args.shuffle_test, num_workers=args.workers,
                              pin_memory=True)
     return ds, (train_loader, test_loader)
 
@@ -163,7 +163,7 @@ def make_loaders_SVHN(args, batch_size, workers):
                               pin_memory=True)
 
     test_set = SVHN(args.data, split='test', transform=test_transform, download=True)
-    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=False, num_workers=workers,
+    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=args.shuffle_test, num_workers=workers,
                              pin_memory=True)
 
     return ds, (train_loader, test_loader)
@@ -182,10 +182,8 @@ def make_loaders_oxford(args, batch_size, workers):
         transforms.ToTensor(),
         normalize
     ])
-    _train_set = Flowers102(args.data, split='train', transform=train_transform, download=True)
-    _val_set = Flowers102(args.data, split='val', transform=train_transform, download=True)
-    train_set = ConcatDataset([_train_set, _val_set])
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+    train_set = Flowers102(args.data, split='train', transform=train_transform, download=True)
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=args.workers,
                               pin_memory=True)
 
     test_transform = transforms.Compose([
@@ -196,7 +194,7 @@ def make_loaders_oxford(args, batch_size, workers):
         normalize
     ])
     test_set = Flowers102(args.data, split='test', transform=test_transform, download=True)
-    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=args.shuffle_test, num_workers=args.workers,
                              pin_memory=True)
     return ds, (train_loader, test_loader)
 
@@ -255,9 +253,9 @@ def make_loaders_caltech101(args, batch_size, workers):
     train_set = TransformedDataset(train_set, transform=train_transform)
     test_set = TransformedDataset(test_set, transform=test_transform)
 
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=args.workers,
                               pin_memory=True)
-    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=args.shuffle_test, num_workers=args.workers,
                              pin_memory=True)
 
     return 101, (train_loader, test_loader)
@@ -298,10 +296,8 @@ def make_loaders_dtd(args, batch_size, workers):
         transforms.ToTensor(),
         normalize
     ])
-    _train_set = DTD(args.data, split='train', transform=train_transform, download=True)
-    _val_set = DTD(args.data, split='val', transform=train_transform, download=True)
-    train_set = ConcatDataset([_train_set, _val_set])
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+    train_set = DTD(args.data, split='train', transform=train_transform, download=True)
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=args.workers,
                               pin_memory=True)
 
     test_transform = transforms.Compose([
@@ -312,7 +308,7 @@ def make_loaders_dtd(args, batch_size, workers):
         normalize
     ])
     test_set = DTD(args.data, split='test', transform=test_transform, download=True)
-    test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+    test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=args.shuffle_test, num_workers=args.workers,
                              pin_memory=True)
     return 57, (train_loader, test_loader)
 
@@ -518,7 +514,7 @@ class Flowers102(VisionDataset):
         self._labels = []
         self._image_files = []
         for image_id in image_ids:
-            self._labels.append(image_id_to_label[image_id])
+            self._labels.append(image_id_to_label[image_id] - 1)
             self._image_files.append(self._images_folder / f"image_{image_id:05d}.jpg")
 
     def __len__(self) -> int:

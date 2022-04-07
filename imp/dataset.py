@@ -758,7 +758,7 @@ class Flowers102(VisionDataset):
         self._labels = []
         self._image_files = []
         for image_id in image_ids:
-            self._labels.append(image_id_to_label[image_id])
+            self._labels.append(image_id_to_label[image_id] - 1)
             self._image_files.append(self._images_folder / f"image_{image_id:05d}.jpg")
 
     def __len__(self) -> int:
