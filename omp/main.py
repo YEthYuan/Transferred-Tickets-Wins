@@ -32,7 +32,7 @@ parser.add_argument('--eps', type=str, help='adversarial perturbation budget', d
 parser.add_argument('--attack-lr', type=str, help='step size for PGD', default='10')
 
 # Custom arguments
-parser.add_argument('--dataset', type=str, default='flowers',
+parser.add_argument('--dataset', type=str, default='caltech101',
                     help='Dataset (Overrides the one in robustness.defaults)')
 parser.add_argument('--data', type=str, default='/home/yuanye/data')
 parser.add_argument('--out-dir', type=str, default='runs')

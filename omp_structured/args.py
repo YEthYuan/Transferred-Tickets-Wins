@@ -2,8 +2,6 @@ import argparse
 import sys
 import yaml
 
-from config_rst import parser as _parser
-
 args = None
 
 
@@ -15,7 +13,6 @@ def parse_arguments():
     parser.add_argument('--alpha', default=10, type=float, help='Step size')
     parser.add_argument('--attack_iters', default=7, type=int, help='Attack iterations')
     parser.add_argument('--constraint', default='Linf', type=str, choices=['Linf', 'L2'])
-    parser.add_argument('--task', default='search', choices=['search', 'ft_full'])
     parser.add_argument("--ft_init", default="kaiming_normal", help="Weight initialization for finetuning")
     parser.add_argument("--ft_full_mode", default='all', choices=['all', 'only_zero', 'decay_on_zero', 'low_lr_zero'],
                         help="how to finetune the whole model")
@@ -24,11 +21,10 @@ def parse_arguments():
     parser.add_argument("--optimizer", help="Which optimizer to use", default="sgd")
     parser.add_argument("--set", help="name of dataset", type=str, default="cifar10")
     parser.add_argument("-a", "--arch", metavar="ARCH", default="ResNet18", help="model architecture")
-    parser.add_argument("--config", help="Config file to use (see configs dir)",
-                        default='config_rst/resnet18-cifar-debug.yaml')
     parser.add_argument("--log-dir", help="Where to save the runs. If None use ./runs", default=None)
-    parser.add_argument("--prune-rate", default=0.8, help="Amount of pruning to do during sparse training", type=float)
+    parser.add_argument("--prune-rate", default=0.1, help="Amount of pruning to do during sparse training", type=float)
     parser.add_argument('--prune_percent', type=int, default=None)
+    parser.add_argument("--conv_type", type=str, default='SubnetConv_row', help="What kind of sparsity to use")
     parser.add_argument(
         "-j",
         "--workers",
@@ -39,7 +35,7 @@ def parse_arguments():
     )
     parser.add_argument(
         "--epochs",
-        default=160,
+        default=150,
         type=int,
         metavar="N",
         help="number of total epochs to run",
@@ -54,7 +50,7 @@ def parse_arguments():
     parser.add_argument(
         "-b",
         "--batch_size",
-        default=256,
+        default=64,
         type=int,
         metavar="N",
         help="mini-batch size (default: 256), this is the total "
@@ -71,7 +67,7 @@ def parse_arguments():
     parser.add_argument(
         "--lr",
         "--learning-rate",
-        default=0.256,
+        default=0.001,
         type=float,
         metavar="LR",
         help="initial learning rate",
@@ -86,7 +82,7 @@ def parse_arguments():
     parser.add_argument(
         "--wd",
         "--weight-decay",
-        default=1e-4,
+        default=5e-4,
         type=float,
         metavar="W",
         help="weight decay (default: 1e-4)",
@@ -118,13 +114,13 @@ def parse_arguments():
     parser.add_argument(
         "--pretrained",
         dest="pretrained",
-        # default="pretrained_models/resnet18_l2_eps3.ckpt",  # in search task
+        default="pretrained_models/resnet18_l2_eps3.ckpt",  # in search task
         # default="debug_runs/resnet18-cifar-debug/debug_run/prune_rate=0.2/search/checkpoints/model_best.pth",
-        default=None,
+        # default=None,
         type=str,
         help="use pre-trained model",
     )
-    parser.add_argument('--pytorch-pretrained', action='store_true', default=True,
+    parser.add_argument('--pytorch-pretrained', action='store_true',
                         help='If True, loads a Pytorch pretrained model.')
     parser.add_argument(
         "--seed", default=None, type=int, help="seed for initializing training. "
@@ -138,10 +134,12 @@ def parse_arguments():
 
     # Learning Rate Policy Specific
     parser.add_argument(
-        "--lr_policy", default="cifar_piecewise", help="Policy for the learning rate."
+        "--lr_policy", default="multistep_lr", help="Policy for the learning rate."
     )
+    parser.add_argument('--multistep', default=[50,100], type=int, nargs='*',
+                        help='lr switch point for multi step lr decay')
     parser.add_argument(
-        "--multistep_lr_adjust", default=30, type=int, help="Interval to drop lr"
+        "--multistep_lr_adjust", default=50, type=int, help="Interval to drop lr"
     )
     parser.add_argument(
         "--multistep_lr_gamma", default=0.1, type=int, help="Multistep multiplier"
@@ -178,9 +176,7 @@ def parse_arguments():
         action="store_true",
         help="One batch train set for debugging purposes (test overfitting)",
     )
-    parser.add_argument(
-        "--conv_type", type=str, default='SubnetConv_kernel', help="What kind of sparsity to use"
-    )
+
     parser.add_argument(
         "--freeze-weights",
         action="store_true",
@@ -234,9 +230,6 @@ def parse_arguments():
     parser.add_argument('--lr_scale_zero', default=1e-1, type=float,
                         help='weight decay on the parameters intialized to be zero in the ft_full phase')
 
-    parser.add_argument('--multistep', default=None, type=int, nargs='*',
-                        help='lr switch point for multi step lr decay')
-
     parser.add_argument(
         "--automatic_resume", action="store_true", help="automatically resume"
     )
@@ -265,27 +258,7 @@ def parse_arguments():
 
     args = parser.parse_args()
 
-    # Allow for use from notebook without config file
-    if len(sys.argv) > 1:
-        get_config(args)
-
     return args
-
-
-def get_config(args):
-    # get commands from command line
-    override_args = _parser.argv_to_vars(sys.argv)
-
-    # load yaml file
-    yaml_txt = open(args.config).read()
-
-    # override args
-    loaded_yaml = yaml.load(yaml_txt, Loader=yaml.FullLoader)
-    for v in override_args:
-        loaded_yaml[v] = getattr(args, v)
-
-    print(f"=> Reading YAML config from {args.config}")
-    args.__dict__.update(loaded_yaml)
 
 
 def run_args():
