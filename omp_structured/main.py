@@ -100,11 +100,13 @@ def main_worker(args):
         )
         args.custom_accuracy = get_per_class_accuracy(args, val_loader)
 
-    pretrained(args, model)
+    if args.pretrained:
+        pretrained(args, model)
     set_model_prune_rate(model,
                          prune_rate=1 - args.prune_rate)  # Note that here prune_rate = remain_weight / total_weight
     init_model_weight_with_score(model, prune_rate=1 - args.prune_rate)
-    # freeze_model_subnet(model)
+    if args.freeze_level != -1:
+        freeze_model(log, model, freeze_level=args.freeze_level)
     check_sparsity(model, use_mask=False, conv1=True)
 
     if args.classes != 1000:
@@ -333,6 +335,13 @@ def main_worker(args):
     #     base_config=args.config,
     #     name=args.name,
     # )
+
+    outp_str = args.conv_type + f" {args.prune_rate} best prec {best_acc1} \n"
+    print(outp_str)
+    file_name = f"{args.set}_{args.arch}_{args.conv_type}_{'linear' if args.freeze_level == 4 else 'finetune'}.txt"
+    f = open(file_name, "a+")
+    f.write(outp_str)
+    f.close()
 
     log.info(args)
     log_dir_new = 'logs/log_' + args.name
@@ -689,6 +698,28 @@ def check_module_sparsity(module, use_mask=True):
                 zero_sum += torch.sum(param == 0).item()
 
     return sum_list, zero_sum
+
+
+def freeze_model(log, model, freeze_level):
+
+    assert len([name for name, _ in list(model.named_parameters())
+                if f"layer{freeze_level}" in name]), "unknown freeze level (only {1,2,3,4} for ResNets)"
+    update_params = []
+    freeze = True
+    for name, param in model.named_parameters():
+        print(name, param.size())
+
+        if not freeze and f'layer{freeze_level}' not in name:
+            log.info(f"Update {name}")
+            update_params.append(param)
+        else:
+            log.info(f"Freeze {name}")
+            param.requires_grad = False
+
+        if freeze and f'layer{freeze_level}' in name:
+            # if the freeze level is detected stop freezing onwards
+            freeze = False
+    return update_params
 
 
 if __name__ == "__main__":

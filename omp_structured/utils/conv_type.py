@@ -104,7 +104,8 @@ class SubnetConv_filter(nn.Conv2d):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.scores = torch.sum(self.weight.abs(), dim=[1, 2, 3])
+        self.scores = nn.Parameter(torch.sum(self.weight.abs(), dim=[1, 2, 3]))
+        self.scores.requires_grad = False
         # self.scores = nn.Parameter(torch.Tensor(self.weight.size()[:1]))
         # nn.init.normal_(self.scores, mean=0.0, std=1.0)
 
@@ -161,7 +162,8 @@ class SubnetConv_kernel(nn.Conv2d):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.scores = torch.sum(self.weight.abs(), dim=[2, 3])
+        self.scores = nn.Parameter(torch.sum(self.weight.abs(), dim=[2, 3]))
+        self.scores.requires_grad = False
         # self.scores = nn.Parameter(torch.Tensor(self.weight.size()[:2]))
         # nn.init.kaiming_uniform_(self.scores, a=math.sqrt(5))
 
@@ -218,7 +220,8 @@ class SubnetConv_row(nn.Conv2d):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.scores = torch.sum(self.weight.abs(), dim=[3])
+        self.scores = nn.Parameter(torch.sum(self.weight.abs(), dim=[3]))
+        self.scores.requires_grad = False
         # self.scores = nn.Parameter(torch.Tensor(self.weight.size()[:3]))
         # nn.init.kaiming_uniform_(self.scores, a=math.sqrt(5))
 

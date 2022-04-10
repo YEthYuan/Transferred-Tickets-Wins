@@ -1,6 +1,5 @@
 import argparse
 import sys
-import yaml
 
 args = None
 
@@ -22,7 +21,7 @@ def parse_arguments():
     parser.add_argument("--set", help="name of dataset", type=str, default="cifar10")
     parser.add_argument("-a", "--arch", metavar="ARCH", default="ResNet18", help="model architecture")
     parser.add_argument("--log-dir", help="Where to save the runs. If None use ./runs", default=None)
-    parser.add_argument("--prune-rate", default=0.1, help="Amount of pruning to do during sparse training", type=float)
+    parser.add_argument("--prune_rate", default=0.1, help="Amount of pruning to do during sparse training", type=float)
     parser.add_argument('--prune_percent', type=int, default=None)
     parser.add_argument("--conv_type", type=str, default='SubnetConv_row', help="What kind of sparsity to use")
     parser.add_argument(
@@ -114,9 +113,9 @@ def parse_arguments():
     parser.add_argument(
         "--pretrained",
         dest="pretrained",
-        default="pretrained_models/resnet18_l2_eps3.ckpt",  # in search task
+        # default="pretrained_models/resnet18_l2_eps3.ckpt",  # in search task
         # default="debug_runs/resnet18-cifar-debug/debug_run/prune_rate=0.2/search/checkpoints/model_best.pth",
-        # default=None,
+        default=None,
         type=str,
         help="use pre-trained model",
     )
@@ -131,7 +130,8 @@ def parse_arguments():
         type=lambda x: [int(a) for a in x.split(",")],
         help="Which GPUs to use for multigpu training",
     )
-
+    parser.add_argument('--freeze-level', type=int, default=-1,
+                        help='Up to what layer to freeze in the pretrained model (assumes a resnet architectures)')
     # Learning Rate Policy Specific
     parser.add_argument(
         "--lr_policy", default="multistep_lr", help="Policy for the learning rate."
