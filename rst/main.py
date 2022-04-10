@@ -148,6 +148,8 @@ def main_worker(args):
         if args.task == 'ft_full':
             init_model_weight_with_score(model, prune_rate=args.prune_rate)
             # set_model_prune_rate(model, prune_rate=1.0)
+            if args.freeze_level != -1:
+                freeze_model(log, model, freeze_level=args.freeze_level)
    
     model = set_gpu(args, model)
     optimizer = get_optimizer(args, model)
@@ -830,6 +832,28 @@ def get_per_class_accuracy(args, loader):
         return weighted_prec1, normal_prec1
 
     return custom_acc
+
+
+def freeze_model(log, model, freeze_level):
+
+    assert len([name for name, _ in list(model.named_parameters())
+                if f"layer{freeze_level}" in name]), "unknown freeze level (only {1,2,3,4} for ResNets)"
+    update_params = []
+    freeze = True
+    for name, param in model.named_parameters():
+        print(name, param.size())
+
+        if not freeze and f'layer{freeze_level}' not in name:
+            log.info(f"Update {name}")
+            update_params.append(param)
+        else:
+            log.info(f"Freeze {name}")
+            param.requires_grad = False
+
+        if freeze and f'layer{freeze_level}' in name:
+            # if the freeze level is detected stop freezing onwards
+            freeze = False
+    return update_params
 
 
 if __name__ == "__main__":

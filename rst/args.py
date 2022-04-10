@@ -68,6 +68,8 @@ def parse_arguments():
         metavar="N",
         help="mini-batch size for test",
     )
+    parser.add_argument('--freeze-level', type=int, default=-1,
+                        help='Up to what layer to freeze in the pretrained model (assumes a resnet architectures)')
     parser.add_argument(
         "--lr",
         "--learning-rate",
