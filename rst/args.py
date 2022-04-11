@@ -15,7 +15,7 @@ def parse_arguments():
     parser.add_argument('--alpha', default=10, type=float, help='Step size')
     parser.add_argument('--attack_iters', default=7, type=int, help='Attack iterations')
     parser.add_argument('--constraint', default='Linf', type=str, choices=['Linf', 'L2'])
-    parser.add_argument('--task', default='ft_full', choices=['search', 'ft_full'])
+    parser.add_argument('--task', default='search', choices=['search', 'ft_full'])
     parser.add_argument("--ft_init", default="kaiming_normal", help="Weight initialization for finetuning")
     parser.add_argument("--ft_full_mode", default='all', choices=['all', 'only_zero', 'decay_on_zero', 'low_lr_zero'],
                         help="how to finetune the whole model")
@@ -27,7 +27,7 @@ def parse_arguments():
     parser.add_argument("--config", help="Config file to use (see configs dir)",
                         default='config_rst/resnet18-cifar-debug.yaml')
     parser.add_argument("--log-dir", help="Where to save the runs. If None use ./runs", default=None)
-    parser.add_argument("--prune-rate", default=0.2, help="Amount of pruning to do during sparse training", type=float)
+    parser.add_argument("--prune-rate", default=0.8, help="Amount of pruning to do during sparse training", type=float)
     parser.add_argument('--prune_percent', type=int, default=None)
     parser.add_argument(
         "-j",
@@ -68,6 +68,8 @@ def parse_arguments():
         metavar="N",
         help="mini-batch size for test",
     )
+    parser.add_argument('--freeze-level', type=int, default=-1,
+                        help='Up to what layer to freeze in the pretrained model (assumes a resnet architectures)')
     parser.add_argument(
         "--lr",
         "--learning-rate",
@@ -179,7 +181,7 @@ def parse_arguments():
         help="One batch train set for debugging purposes (test overfitting)",
     )
     parser.add_argument(
-        "--conv_type", type=str, default='SubnetConv', help="What kind of sparsity to use"
+        "--conv_type", type=str, default='SubnetConv_kernel', help="What kind of sparsity to use"
     )
     parser.add_argument(
         "--freeze-weights",

@@ -18,62 +18,6 @@ svhn_std = (0.5, 0.5, 0.5)
 imagenet_mean = (0.485, 0.456, 0.406)
 imagenet_std = (0.229, 0.224, 0.225)
 
-
-def batch_multiply_tensor_by_vector(vector, batch_tensor):
-    """Equivalent to the following
-    for ii in range(len(vector)):
-        batch_tensor.data[ii] *= vector[ii]
-    return batch_tensor
-    """
-    return (
-            batch_tensor.transpose(0, -1) * vector).transpose(0, -1).contiguous()
-
-
-def batch_multiply(float_or_vector, tensor):
-    if isinstance(float_or_vector, torch.Tensor):
-        assert len(float_or_vector) == len(tensor)
-        tensor = batch_multiply_tensor_by_vector(float_or_vector, tensor)
-    elif isinstance(float_or_vector, float):
-        tensor *= float_or_vector
-    else:
-        raise TypeError("Value has to be float or torch.Tensor")
-    return tensor
-
-
-def clamp_by_pnorm(x, p, r):
-    assert isinstance(p, float) or isinstance(p, int)
-    norm = get_norm_batch(x, p)
-    if isinstance(r, torch.Tensor):
-        assert norm.size() == r.size()
-    else:
-        assert isinstance(r, float)
-    factor = torch.min(r / norm, torch.ones_like(norm))
-    return batch_multiply(factor, x)
-
-
-def normalize_by_pnorm(x, p=2, small_constant=1e-6):
-    """
-    Normalize gradients for gradient (not gradient sign) attacks.
-    # TODO: move this function to utils
-    :param x: tensor containing the gradients on the input.
-    :param p: (optional) order of the norm for the normalization (1 or 2).
-    :param small_constant: (optional float) to avoid dividing by zero.
-    :return: normalized gradients.
-    """
-    # loss is averaged over the batch so need to multiply the batch
-    # size to find the actual gradient of each input sample
-
-    assert isinstance(p, float) or isinstance(p, int)
-    norm = get_norm_batch(x, p)
-    norm = torch.max(norm, torch.ones_like(norm) * small_constant)
-    return batch_multiply(1. / norm, x)
-
-
-def get_norm_batch(x, p):
-    batch_size = x.size(0)
-    return x.abs().pow(p).view(batch_size, -1).sum(dim=1).pow(1. / p)
-
-
 def clamp(X, lower_limit, upper_limit):
     return torch.max(torch.min(X, upper_limit), lower_limit)
 
@@ -122,6 +66,9 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
     elif args.constraint == 'L2':
         epsilon = args.epsilon
         alpha = args.alpha / 255.
+    else:
+        epsilon = args.epsilon / 255.
+        alpha = epsilon * 2.5 / 5
 
     ones = torch.ones_like(mu).cuda()
     # switch to train mode
@@ -157,18 +104,18 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
             loss = F.cross_entropy(output, y)
 
             loss.backward()
-            if args.constraint == 'Linf':
-                grad = delta.grad.detach()
+            if constraint == 'Linf':
                 delta.data = clamp(delta + alpha * torch.sign(grad), -epsilon * ones, epsilon * ones)
                 delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
-            elif args.constraint == 'L2':
-                grad = delta.grad.detach()
-                grad = normalize_by_pnorm(grad)
-                delta.data = delta.data + batch_multiply(alpha, grad)
+            elif constraint == 'L2':
+                l = len(X.shape) - 1
+                g_norm = torch.norm(grad.view(grad.shape[0], -1), dim=1).view(-1, *([1]*l))
+                scaled_g  = grad / (g_norm + 1e-10)
+                delta.data = delta.data + alpha * scaled_g
+                delta.data = delta.renorm(p=2, dim=0, maxnorm=epsilon)
                 delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
-                delta.data = clamp_by_pnorm(delta.data, 2, epsilon)
             else:
-                print('Wrong Attack Constraint!')
+                print('Wrong Constraint')
                 exit()
 
         elif args.attack_type == 'pgd':
@@ -183,18 +130,18 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
 
                 loss.backward()
 
-                if args.constraint == 'Linf':
-                    grad = delta.grad.detach()
-                    delta.data = clamp(delta + alpha * torch.sign(grad), -epsilon * ones, epsilon * ones)
+                if constraint == 'Linf':
+                delta.data = clamp(delta + alpha * torch.sign(grad), -epsilon * ones, epsilon * ones)
+                delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
+                elif constraint == 'L2':
+                    l = len(X.shape) - 1
+                    g_norm = torch.norm(grad.view(grad.shape[0], -1), dim=1).view(-1, *([1]*l))
+                    scaled_g  = grad / (g_norm + 1e-10)
+                    delta.data = delta.data + alpha * scaled_g
+                    delta.data = delta.renorm(p=2, dim=0, maxnorm=epsilon)
                     delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
-                elif args.constraint == 'L2':
-                    grad = delta.grad.detach()
-                    grad = normalize_by_pnorm(grad)
-                    delta.data = delta.data + batch_multiply(alpha, grad)
-                    delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
-                    delta.data = clamp_by_pnorm(delta.data, 2, epsilon)
                 else:
-                    print('Wrong Attack Constraint!')
+                    print('Wrong Constraint')
                     exit()
 
         else:
@@ -396,6 +343,9 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
     elif args.constraint == 'L2':
         epsilon = args.epsilon
         alpha = 2 / 255.
+    else:
+        epsilon = args.epsilon / 255.
+        alpha = epsilon * 2.5 / 5
 
     end = time.time()
     for i, (X, y) in tqdm.tqdm(
@@ -405,7 +355,7 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
         X = X.cuda()
         y = y.cuda()
 
-        pgd_delta = attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_iters=5, restarts=1)
+        pgd_delta = attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, constraint = args.constraint, attack_iters=3, restarts=1)
         # compute output
         output = model(X + pgd_delta)
 
@@ -437,7 +387,7 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
     return top1.avg, top5.avg
 
 
-def attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_iters=20, restarts=1):
+def attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, constraint, attack_iters=20, restarts=1):
     max_loss = torch.zeros(y.shape[0]).cuda()
     max_delta = torch.zeros_like(X).cuda()
     ones = torch.ones((3,1,1)).cuda()
@@ -450,19 +400,24 @@ def attack_pgd(model, X, y, epsilon, alpha, lower_limit, upper_limit, attack_ite
         for _ in range(attack_iters):
             output = model(X + delta)
             index = torch.where(output.max(1)[1] == y)
-            if len(index[0]) == 0:
-                break
             loss = F.cross_entropy(output, y)
             loss.backward()
 
             grad = delta.grad.detach()
-            d = delta[index[0], :, :, :]
-            g = grad[index[0], :, :, :]
-            d = clamp(d + alpha * torch.sign(g), -epsilon * ones, epsilon * ones)
-            d = clamp(d, lower_limit - X[index[0], :, :, :], upper_limit - X[index[0], :, :, :])
-            delta.data[index[0], :, :, :] = d
-            delta.grad.zero_()
-
+            if constraint == 'Linf':
+                delta.data = clamp(delta + alpha * torch.sign(grad), -epsilon * ones, epsilon * ones)
+                delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
+            elif constraint == 'L2':
+                l = len(X.shape) - 1
+                g_norm = torch.norm(grad.view(grad.shape[0], -1), dim=1).view(-1, *([1]*l))
+                scaled_g  = grad / (g_norm + 1e-10)
+                delta.data = delta.data + alpha * scaled_g
+                delta.data = delta.renorm(p=2, dim=0, maxnorm=epsilon)
+                delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
+            else:
+                print('Wrong Constraint')
+                exit()
+            
         with torch.no_grad():
             all_loss = F.cross_entropy(model(X + delta), y, reduction='none').detach()
             max_delta[all_loss >= max_loss] = delta.detach()[all_loss >= max_loss]
