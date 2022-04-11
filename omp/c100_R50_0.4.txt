@@ -1,0 +1,20 @@
+Logging in: /home/yf22/Transferred-Tickets-Wins/omp/runs/img-c100-resnet50-eps3-uns-p0.4-finetune
+==> Preparing dataset cifar100..
+Files already downloaded and verified
+Files already downloaded and verified
+=> loading checkpoint '/home/yf22/ResNet_ckpt/resnet50_l2_eps3.ckpt'
+=> loaded checkpoint '/home/yf22/ResNet_ckpt/resnet50_l2_eps3.ckpt' (epoch 90)
+[Replacing the last layer with 0 hidden layers and 1 classification layer that fits the cifar100 dataset.]
+no weight for calculating sparsity
+L1 Unstructured Pruning Start
+L1 Unstructured Pruning Done!
+* remain weight ratio =  59.999999147300144 %
+remove pruning
+=> loading checkpoint '/home/yf22/ResNet_ckpt/resnet50_l2_eps3.ckpt'
+=> loaded checkpoint '/home/yf22/ResNet_ckpt/resnet50_l2_eps3.ckpt' (epoch 90)
+[Replacing the last layer with 0 hidden layers and 1 classification layer that fits the cifar100 dataset.]
+Dataset: cifar100 | Model: resnet50
+Use SGD as the optimizer
+/home/yf22/Transferred-Tickets-Wins/omp/my_robustness/train.py:25: UserWarning: Could not import amp.
+  warnings.warn('Could not import amp.')
+  0%|          | 0/782 [00:00<?, ?it/s]Train Epoch:0 | Loss 4.7148 | NatPrec1 0.000 | NatPrec5 3.125 | Reg term: 0.0 ||:   0%|          | 0/782 [00:11<?, ?it/s]Train Epoch:0 | Loss 4.7148 | NatPrec1 0.000 | NatPrec5 3.125 | Reg term: 0.0 ||:   0%|          | 0/782 [00:11<?, ?it/s]Train Epoch:0 | Loss 4.7148 | NatPrec1 0.000 | NatPrec5 3.125 | Reg term: 0.0 ||:   0%|          | 1/782 [00:11<2:29:05, 11.45s/it]Train Epoch:0 | Loss 4.6846 | NatPrec1 0.781 | NatPrec5 7.031 | Reg term: 0.0 ||:   0%|          | 1/782 [00:11<2:29:05, 11.45s/it]Train Epoch:0 | Loss 4.6846 | NatPrec1 0.781 | NatPrec5 7.031 | Reg term: 0.0 ||:   0%|          | 1/782 [00:11<2:29:05, 11.45s/it]Train Epoch:0 | Loss 4.6846 | NatPrec1 0.781 | NatPrec5 7.031 | Reg term: 0.0 ||:   0%|          | 2/782 [00:11<1:03:20,  4.87s/it]Train Epoch:0 | Loss 4.6862 | NatPrec1 0.521 | NatPrec5 6.250 | Reg term: 0.0 ||:   0%|          | 2/782 [00:11<1:03:20,  4.87s/it]Train Epoch:0 | Loss 4.6862 | NatPrec1 0.521 | NatPrec5 6.250 | Reg term: 0.0 ||:   0%|          | 2/782 [00:11<1:03:20,  4.87s/it]Train Epoch:0 | Loss 4.6862 | NatPrec1 0.521 | NatPrec5 6.250 | Reg term: 0.0 ||:   0%|          | 3/782 [00:11<35:53,  2.76s/it]  Train Epoch:0 | Loss 4.6729 | NatPrec1 0.391 | NatPrec5 6.250 | Reg term: 0.0 ||:   0%|          | 3/782 [00:12<35:53,  2.76s/it]Train Epoch:0 | Loss 4.6729 | NatPrec1 0.391 | NatPrec5 6.250 | Reg term: 0.0 ||:   0%|          | 3/782 [00:12<35:53,  2.76s/it]Train Epoch:0 | Loss 4.6729 | NatPrec1 0.391 | NatPrec5 6.250 | Reg term: 0.0 ||:   1%|          | 4/782 [00:12<23:00,  1.77s/it]Train Epoch:0 | Loss 4.6538 | NatPrec1 0.625 | NatPrec5 6.250 | Reg term: 0.0 ||:   1%|          | 4/782 [00:12<23:00,  1.77s/it]Train Epoch:0 | Loss 4.6538 | NatPrec1 0.625 | NatPrec5 6.250 | Reg term: 0.0 ||:   1%|          | 4/782 [00:12<23:00,  1.77s/it]Train Epoch:0 | Loss 4.6538 | NatPrec1 0.625 | NatPrec5 6.250 | Reg term: 0.0 ||:   1%|          | 5/782 [00:12<15:53,  1.23s/it]Train Epoch:0 | Loss 4.6691 | NatPrec1 0.781 | NatPrec5 5.729 | Reg term: 0.0 ||:   1%|          | 5/782 [00:12<15:53,  1.23s/it]Train Epoch:0 | Loss 4.6691 | NatPrec1 0.781 | NatPrec5 5.729 | Reg term: 0.0 ||:   1%|          | 5/782 [00:12<15:53,  1.23s/it]Train Epoch:0 | Loss 4.6691 | NatPrec1 0.781 | NatPrec5 5.729 | Reg term: 0.0 ||:   1%|          | 6/782 [00:12<11:36,  1.11it/s]Train Epoch:0 | Loss 4.6685 | NatPrec1 0.893 | NatPrec5 6.250 | Reg term: 0.0 ||:   1%|          | 6/782 [00:13<11:36,  1.11it/s]Train Epoch:0 | Loss 4.6685 | NatPrec1 0.893 | NatPrec5 6.250 | Reg term: 0.0 ||:   1%|          | 6/782 [00:13<11:36,  1.11it/s]Train Epoch:0 | Loss 4.6685 | NatPrec1 0.893 | NatPrec5 6.250 | Reg term: 0.0 ||:   1%|          | 7/782 [00:13<08:52,  1.45it/s]Train Epoch:0 | Loss 4.6686 | NatPrec1 0.977 | NatPrec5 6.250 | Reg term: 0.0 ||:   1%|          | 7/782 [00:13<08:52,  1.45it/s]Train Epoch:0 | Loss 4.6686 | NatPrec1 0.977 | NatPrec5 6.250 | Reg term: 0.0 ||:   1%|          | 7/782 [00:13<08:52,  

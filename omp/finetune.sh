@@ -1,0 +1,18 @@
+HIP_VISIBLE_DEVICES=$1 python main.py \
+    --arch resnet50 \
+    --eps 3 \
+    --prune_rate $2 \
+    --dataset cifar100 \
+    --exp-name img-c100-resnet50-eps3-uns-p$2-finetune \
+    --epochs 150 \
+    --opt sgd \
+    --lr 0.001 \
+    --step-lr 50 \
+    --batch-size 64 \
+    --weight-decay 5e-4 \
+    --adv-train 0 \
+    --adv-eval 0 \
+    --workers 32 \
+    --model-path /home/yf22/ResNet_ckpt/resnet50_l2_eps3.ckpt \
+    --conv1 \
+    --freeze-level -1 > c100_R50_$2.txt 2>&1 &
