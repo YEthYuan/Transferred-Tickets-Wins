@@ -42,6 +42,8 @@ parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data
 #                    help='path to dataset') # GPU7
 # parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
 #                     help='path to dataset')  # GPU6
+# parser.add_argument('--data', metavar='DIR', default='/data2/ILSVRC/Data/CLS-LOC/',
+#                     help='path to dataset')  # GPU5
 # parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data/',
 #                     help='path to dataset') # Debug
 
@@ -59,7 +61,7 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
 parser.add_argument('--epochs', default=10, type=int, metavar='N',
                     help='number of total epochs to run')
 
-parser.add_argument('-b', '--batch-size', default=256, type=int,
+parser.add_argument('-b', '--batch-size', default=128, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
@@ -70,7 +72,7 @@ parser.add_argument('--decreasing_lr', default=None, help='decreasing strategy')
 parser.add_argument('--warmup', default=0, type=int, help='warm up epochs') # Imagenet upstream IMP
 parser.add_argument('--log_dir', default='runs', type=str)
 parser.add_argument('--name', default='R50_cal101_Linf_Eps4', type=str, help='experiment name')
-parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet50_linf_eps4.0.ckpt',
+parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
                     help='path of the pretrained weight')
 # parser.add_argument('--model-path', type=str, default='/home/yuanye/RST/imp/pretrained_models/resnet18_l2_eps3.ckpt',
 #                      help='path of the pretrained weight') # debug
@@ -105,10 +107,10 @@ parser.add_argument('--gpu', default=None, type=int,
 
 # Adv params
 parser.add_argument('--attack_type', default='fgsm-rs', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
-parser.add_argument('--epsilon', default=4, type=int)
+parser.add_argument('--epsilon', default=3, type=int)
 parser.add_argument('--alpha', default=5, type=float, help='Step size')
 parser.add_argument('--attack_iters', default=1, type=int, help='Attack iterations')
-parser.add_argument('--constraint', default='Linf', type=str, choices=['Linf', 'L2'])
+parser.add_argument('--constraint', default='L2', type=str, choices=['Linf', 'L2'])
 
 
 def main():
@@ -305,7 +307,11 @@ def main_worker(gpu, args):
         log.info("Natural Acc1: %.2f, Natural Acc5: %.2f, Robust Acc1: %.2f, Robust Acc5: %.2f", nat_acc1, nat_acc5,
                  adv_acc1, adv_acc5)
         return
-
+    # nat_acc1, nat_acc5 = validate(val_loader, model, criterion, args, writer, 0)
+    adv_acc1, adv_acc5 = validate_adv(val_loader, model, criterion, args, writer, 0)
+    # print('Nat: ', nat_acc1)
+    print('Adv: ', adv_acc1)
+    exit()
     for prun_iter in range(args.start_state, args.states):
         cur_sparsity = check_sparsity(model.module, use_mask=True, conv1=False)
         if cur_sparsity:
