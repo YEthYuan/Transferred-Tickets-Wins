@@ -182,14 +182,22 @@ def main_worker(gpu, args):
         checkpoint = torch.load(args.weight_dir)
 
         new_state_dict = OrderedDict()
+        new_state_dict_no_fc = OrderedDict()
         sd = checkpoint['state_dict']
         for k, v in sd.items():
+            name = k[len('module.'):]
             if 'attacker' in k:
                 break
             if 'normalize' not in k:
-                name = k[len('module.'):]
                 new_state_dict[name] = v
-        model.load_state_dict(new_state_dict, strict=False)
+            if 'normalize' not in k and 'fc' not in k:
+                new_state_dict_no_fc[name] = v
+
+        try:
+            model.load_state_dict(new_state_dict, strict=False)
+        except:
+            model.load_state_dict(new_state_dict_no_fc, strict=False)
+
     else:
         log.info("[LOAD] => Pytorch natural pretrained model")
 

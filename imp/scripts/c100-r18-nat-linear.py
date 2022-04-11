@@ -1,11 +1,11 @@
 import os
 pydir = r"/home/yuanye/anaconda3/envs/t38/bin/python"
-dir = r"/home/yuanye/RST/imp/tickets/R18_c10_Linf_Eps2"
+dir = r"/home/yuanye/RST/imp/tickets/R18_nat"
 ignore = [
 
 ]
 arch = "resnet18"
-ds = "cifar10"
+ds = "cifar100"
 # ===========
 init_weight = ""
 mask_list = []
@@ -26,6 +26,6 @@ for mask in mask_list:
         continue
     print("Now using mask: ", mask)
     sp = mask.split('/')[-1].split('_')[-1][:-len('.pth.tar')]
-    shell_code = f"{pydir} main_eval_downstream.py --arch {arch} --set {ds} --epochs 150 --batch-size 64 --lr 0.001 --name {fn_head+'_'+sp+'_'+fn_ds} --weight_dir {init_weight} --mask_dir {mask} --trainer tune --attack_type None --workers 32 --momentum 0.9 --wd 5e-4 --save-model"
+    shell_code = f"{pydir} main_eval_downstream.py --arch {arch} --set {ds} --epochs 150 --batch-size 64 --lr 0.01 --name {'linear_'+fn_head+'_'+sp+'_'+fn_ds} --weight_dir {init_weight} --mask_dir {mask} --trainer tune --attack_type None --workers 32 --momentum 0.9 --wd 5e-4 --save-model --linear-eval"
     print("Ready to execute: ", shell_code)
     os.system(shell_code)

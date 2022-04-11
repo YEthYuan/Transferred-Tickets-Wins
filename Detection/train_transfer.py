@@ -232,8 +232,9 @@ class Trainer(object):
                 )
 
                 if self.fp_16:
-                    with amp.scale_loss(loss, self.optimizer) as scaled_loss:
-                        scaled_loss.backward()
+                    pass
+                    # with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                    #     scaled_loss.backward()
                 else:
                     loss.backward()
                 # Accumulate gradient for x batches before optimizing

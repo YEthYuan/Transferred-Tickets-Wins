@@ -449,6 +449,9 @@ def main_worker(gpu, args):
         optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                     momentum=args.momentum,
                                     weight_decay=args.weight_decay)
+        if args.decreasing_lr:  # Only used in downstream small dataset IMP
+            decreasing_lr = list(map(int, args.decreasing_lr.split(',')))
+            scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=decreasing_lr, gamma=0.1)
 
 
 def save_checkpoint(state, is_best, checkpoint, filename='checkpoint.pth.tar', best_name='model_best.pth.tar'):
