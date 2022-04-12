@@ -1,0 +1,20 @@
+Logging in: /home/yf22/Transferred-Tickets-Wins/omp/runs/img-c100-resnet50-eps3-uns-p0.5-finetune
+==> Preparing dataset cifar100..
+Files already downloaded and verified
+Files already downloaded and verified
+=> loading checkpoint '/home/yf22/ResNet_ckpt/resnet50_l2_eps3.ckpt'
+=> loaded checkpoint '/home/yf22/ResNet_ckpt/resnet50_l2_eps3.ckpt' (epoch 90)
+[Replacing the last layer with 0 hidden layers and 1 classification layer that fits the cifar100 dataset.]
+no weight for calculating sparsity
+L1 Unstructured Pruning Start
+L1 Unstructured Pruning Done!
+* remain weight ratio =  50.0 %
+remove pruning
+=> loading checkpoint '/home/yf22/ResNet_ckpt/resnet50_l2_eps3.ckpt'
+=> loaded checkpoint '/home/yf22/ResNet_ckpt/resnet50_l2_eps3.ckpt' (epoch 90)
+[Replacing the last layer with 0 hidden layers and 1 classification layer that fits the cifar100 dataset.]
+Dataset: cifar100 | Model: resnet50
+Use SGD as the optimizer
+/home/yf22/Transferred-Tickets-Wins/omp/my_robustness/train.py:25: UserWarning: Could not import amp.
+  warnings.warn('Could not import amp.')
+  0%|          | 0/782 [00:00<?, ?it/s]Train Epoch:0 | Loss 4.6257 | NatPrec1 3.125 | NatPrec5 7.812 | Reg term: 0.0 ||:   0%|          | 0/782 [00:11<?, ?it/s]Train Epoch:0 | Loss 4.6257 | NatPrec1 3.125 | NatPrec5 7.812 | Reg term: 0.0 ||:   0%|          | 0/782 [00:11<?, ?it/s]Train Epoch:0 | Loss 4.6257 | NatPrec1 3.125 | NatPrec5 7.812 | Reg term: 0.0 ||:   0%|          | 1/782 [00:11<2:32:56, 11.75s/it]Train Epoch:0 | Loss 4.6380 | NatPrec1 1.562 | NatPrec5 5.469 | Reg term: 0.0 ||:   0%|          | 1/782 [00:12<2:32:56, 11.75s/it]Train Epoch:0 | Loss 4.6380 | NatPrec1 1.562 | NatPrec5 5.469 | Reg term: 0.0 ||:   0%|          | 1/782 [00:12<2:32:56, 11.75s/it]Train Epoch:0 | Loss 4.6380 | NatPrec1 1.562 | NatPrec5 5.469 | Reg term: 0.0 ||:   0%|          | 2/782 [00:12<1:04:55,  4.99s/it]Train Epoch:0 | Loss 4.6334 | NatPrec1 2.083 | NatPrec5 5.208 | Reg term: 0.0 ||:   0%|          | 2/782 [00:12<1:04:55,  4.99s/it]Train Epoch:0 | Loss 4.6334 | NatPrec1 2.083 | NatPrec5 5.208 | Reg term: 0.0 ||:   0%|          | 2/782 [00:12<1:04:55,  4.99s/it]Train Epoch:0 | Loss 4.6334 | NatPrec1 2.083 | NatPrec5 5.208 | Reg term: 0.0 ||:   0%|          | 3/782 [00:12<36:44,  2.83s/it]  Train Epoch:0 | Loss 4.6282 | NatPrec1 1.953 | NatPrec5 5.469 | Reg term: 0.0 ||:   0%|          | 3/782 [00:12<36:44,  2.83s/it]Train Epoch:0 | Loss 4.6282 | NatPrec1 1.953 | NatPrec5 5.469 | Reg term: 0.0 ||:   0%|          | 3/782 [00:12<36:44,  2.83s/it]Train Epoch:0 | Loss 4.6282 | NatPrec1 1.953 | NatPrec5 5.469 | Reg term: 0.0 ||:   1%|          | 4/782 [00:12<23:31,  1.81s/it]Train Epoch:0 | Loss 4.6213 | NatPrec1 2.188 | NatPrec5 5.312 | Reg term: 0.0 ||:   1%|          | 4/782 [00:12<23:31,  1.81s/it]Train Epoch:0 | Loss 4.6213 | NatPrec1 2.188 | NatPrec5 5.312 | Reg term: 0.0 ||:   1%|          | 4/782 [00:12<23:31,  1.81s/it]Train Epoch:0 | Loss 4.6213 | NatPrec1 2.188 | NatPrec5 5.312 | Reg term: 0.0 ||:   1%|          | 5/782 [00:12<16:12,  1.25s/it]Train Epoch:0 | Loss 4.6161 | NatPrec1 1.823 | NatPrec5 5.729 | Reg term: 0.0 ||:   1%|          | 5/782 [00:13<16:12,  1.25s/it]Train Epoch:0 | Loss 4.6161 | NatPrec1 1.823 | NatPrec5 5.729 | Reg term: 0.0 ||:   1%|          | 5/782 [00:13<16:12,  1.25s/it]Train Epoch:0 | Loss 4.6161 | NatPrec1 1.823 | NatPrec5 5.729 | Reg term: 0.0 ||:   1%|          | 6/782 [00:13<11:48,  1.10it/s]Train Epoch:0 | Loss 4.6181 | NatPrec1 1.563 | NatPrec5 5.804 | Reg term: 0.0 ||:   1%|          | 6/782 [00:13<11:48,  1.10it/s]Train Epoch:0 | Loss 4.6181 | NatPrec1 1.563 | NatPrec5 5.804 | Reg term: 0.0 ||:   1%|          | 6/782 [00:13<11:48,  1.10it/s]Train Epoch:0 | Loss 4.6181 | NatPrec1 1.563 | NatPrec5 5.804 | Reg term: 0.0 ||:   1%|          | 7/782 [00:13<09:00,  1.43it/s]Train Epoch:0 | Loss 4.6192 | NatPrec1 1.562 | NatPrec5 5.273 | Reg term: 0.0 ||:   1%|          | 7/782 [00:13<09:00,  1.43it/s]Train Epoch:0 | Loss 4.6192 | NatPrec1 1.562 | NatPrec5 5.273 | Reg term: 0.0 ||:   1%|          | 7/782 [00:13<09:00,  1.43it/s]Trai
