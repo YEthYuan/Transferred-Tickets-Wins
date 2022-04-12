@@ -10,8 +10,9 @@ task = "finetune"  # linear, finetune
 lr = 0.001
 adv_eps = 3
 pr_method = "filter"  # row, kernel, filter
-run_mode = 2  # 0: 0.1~0.9  1: 0.91~0.99  2: all rate  3: only zero
-adv_nat = 2  # 0: only nat  1: only adv  2: adv+nat
+run_mode = 2  # 0: 0.1~0.9  1: 0.91~0.99  2: all rate  3: only zero  4: custom rate
+custom_rate = [x / 100 for x in range(91, 100, 1)]
+adv_nat = 1  # 0: only nat  1: only adv  2: adv+nat
 # ===========
 log = logging.getLogger(__name__)
 log_path = "runtime_log.txt"
@@ -23,7 +24,7 @@ logging.basicConfig(
     handlers=handlers)
 rl0 = [x / 10 for x in range(1, 10, 1)]
 rl1 = [x / 100 for x in range(91, 100, 1)]
-rl = [rl0, rl1, rl0 + rl1, [0]]
+rl = [rl0, rl1, rl0 + rl1, [0], custom_rate]
 dadv = {"eps": adv_eps}
 dnat = {"eps": 0}
 ladv = [dadv]
@@ -59,7 +60,7 @@ for local_dict in ll[adv_nat]:
     if eps == 0:
         inner = "--pytorch-pretrained"
     else:
-        inner = f"--pretrained pretrained_models/resnet18_l2_eps{eps}.ckpt"
+        inner = f"--pretrained pretrained_models/{arch.lower()}_l2_eps{eps}.ckpt"
 
     for rate in rl[run_mode]:
         start = time.time()
