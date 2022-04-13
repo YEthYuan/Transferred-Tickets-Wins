@@ -172,8 +172,9 @@ def main_worker(args):
         args.resume = ckpt_base_dir / 'model_latest.pth'
         if os.path.isfile(args.resume):
             best_acc1 = resume(args, model, optimizer)
+            log.info("Resumed from ckpt. ")
         else:
-            print('Train from scratch.')
+            log.info('Train from scratch.')
 
     elif args.resume:
         best_acc1 = resume(args, model, optimizer)
@@ -319,7 +320,7 @@ def main_worker(args):
             # else:
             #     log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
 
-            log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
+        log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
 
         save_checkpoint(
             {
