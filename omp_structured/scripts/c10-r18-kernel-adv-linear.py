@@ -3,13 +3,13 @@ import time
 import logging
 
 pydir = r"/home/yuanye/anaconda3/envs/t38/bin/python"
-cuda = "2"  # "0,1,2"
+cuda = "1"  # "0,1,2"
 arch = "ResNet18"
 ds = "cifar10"
-task = "finetune"  # linear, finetune
-lr = 0.001
+task = "linear"  # linear, finetune
+lr = 0.01
 adv_eps = 3
-pr_method = "row"  # row, kernel, filter
+pr_method = "kernel"  # row, kernel, filter
 run_mode = 2  # 0: 0.1~0.9  1: 0.91~0.99  2: all rate  3: only zero  4: custom rate
 custom_rate = [x / 100 for x in range(91, 100, 1)]
 adv_nat = 1  # 0: only nat  1: only adv  2: adv+nat

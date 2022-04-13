@@ -75,6 +75,7 @@ def main_worker(args):
         level=logging.INFO,
         handlers=handlers)
     log.info(args)
+    args.log = log
 
     if args.attack_type == 'free' and args.set == 'ImageNet':
         args.lr_policy = 'multistep_lr_imagenet_free'
@@ -172,8 +173,9 @@ def main_worker(args):
         args.resume = ckpt_base_dir / 'model_latest.pth'
         if os.path.isfile(args.resume):
             best_acc1 = resume(args, model, optimizer)
+            log.info("Resumed from ckpt. ")
         else:
-            print('Train from scratch.')
+            log.info('Train from scratch.')
 
     elif args.resume:
         best_acc1 = resume(args, model, optimizer)
@@ -319,7 +321,7 @@ def main_worker(args):
             # else:
             #     log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
 
-            log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
+        log.info('Epoch[%d][%d] curr acc: %.2f, best acc: %.2f', args.epochs, epoch, acc1, best_acc1)
 
         save_checkpoint(
             {
@@ -423,11 +425,11 @@ def set_gpu(args, model):
 
 def resume(args, model, optimizer):
     if os.path.isfile(args.resume):
-        print(f"=> Loading checkpoint '{args.resume}'")
+        args.log.info(f"=> Loading checkpoint '{args.resume}'")
 
         checkpoint = torch.load(args.resume)
         if args.start_epoch is None:
-            print(f"=> Setting new start epoch at {checkpoint['epoch']}")
+            args.log.info(f"=> Setting new start epoch at {checkpoint['epoch']}")
             args.start_epoch = checkpoint["epoch"]
 
         best_acc1 = checkpoint["best_acc1"]
@@ -437,12 +439,12 @@ def resume(args, model, optimizer):
 
         optimizer.load_state_dict(checkpoint["optimizer"])
 
-        print(f"=> Loaded checkpoint '{args.resume}' (epoch {checkpoint['epoch']})")
+        args.log.info(f"=> Loaded checkpoint '{args.resume}' (epoch {checkpoint['epoch']})")
 
         return best_acc1
         # return best_acc1, natural_acc1_at_best_robustness
     else:
-        print(f"=> No checkpoint found at '{args.resume}'")
+        args.log.info(f"=> No checkpoint found at '{args.resume}'")
         exit()
 
 
