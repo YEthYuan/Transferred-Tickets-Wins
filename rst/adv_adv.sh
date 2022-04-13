@@ -1,6 +1,6 @@
 #!/bin/bash
 export MIOPEN_USER_DB_PATH=/scratch/yf22/ 
-HIP_VISIBLE_DEVICES=0,1,2,3 python main.py \
+HIP_VISIBLE_DEVICES=4,5,6,7 python main.py \
     --arch ResNet18 \
     --attack_type fgsm-rs \
     --prune-rate $1 \
