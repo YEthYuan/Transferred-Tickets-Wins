@@ -75,6 +75,7 @@ def main_worker(args):
         level=logging.INFO,
         handlers=handlers)
     log.info(args)
+    args.log = log
 
     if args.attack_type == 'free' and args.set == 'ImageNet':
         args.lr_policy = 'multistep_lr_imagenet_free'
@@ -424,11 +425,11 @@ def set_gpu(args, model):
 
 def resume(args, model, optimizer):
     if os.path.isfile(args.resume):
-        print(f"=> Loading checkpoint '{args.resume}'")
+        args.log.info(f"=> Loading checkpoint '{args.resume}'")
 
         checkpoint = torch.load(args.resume)
         if args.start_epoch is None:
-            print(f"=> Setting new start epoch at {checkpoint['epoch']}")
+            args.log.info(f"=> Setting new start epoch at {checkpoint['epoch']}")
             args.start_epoch = checkpoint["epoch"]
 
         best_acc1 = checkpoint["best_acc1"]
@@ -438,12 +439,12 @@ def resume(args, model, optimizer):
 
         optimizer.load_state_dict(checkpoint["optimizer"])
 
-        print(f"=> Loaded checkpoint '{args.resume}' (epoch {checkpoint['epoch']})")
+        args.log.info(f"=> Loaded checkpoint '{args.resume}' (epoch {checkpoint['epoch']})")
 
         return best_acc1
         # return best_acc1, natural_acc1_at_best_robustness
     else:
-        print(f"=> No checkpoint found at '{args.resume}'")
+        args.log.info(f"=> No checkpoint found at '{args.resume}'")
         exit()
 
 
