@@ -12,7 +12,7 @@ do
     --arch ResNet18 \
     --attack_type None \
     --prune_percent ${p} \
-    --task ft_full \
+    --task search \
     --set CIFAR10 \
     --data /home/yuanye/data \
     --name img-nat_weight-nat_search \
