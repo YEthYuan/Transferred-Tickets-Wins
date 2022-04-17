@@ -1,18 +1,0 @@
-main_imp.py:120: UserWarning: You have chosen to seed training. This will turn on the CUDNN deterministic setting, which can slow down your training considerably! You may see unexpected behavior when restarting from checkpoints.
-  warnings.warn('You have chosen to seed training. '
-[2022/04/03 07:06:13] - Namespace(alpha=2.5, arch='resnet18', attack_iters=1, attack_type='None', batch_size=64, ckpt_base_dir=PosixPath('runs/R18_cal101_Linf_Eps4/checkpoints'), constraint='L2', data='/home/sw99/datasets/', epochs=10, epsilon=2, evaluate=False, gpu=None, log_dir='runs', lr=0.001, model_path='/home/sw99/ResNet_ckpt/resnet18_linf_eps2.0.ckpt', momentum=0.9, name='R18_cal101_Linf_Eps4', percent=0.2, print_freq=50, pytorch_pretrained=False, random=False, resume='', seed=142, set='caltech101', start_epoch=0, start_state=0, states=19, trainer='default', weight_decay=0.0001, workers=16)
-[2022/04/03 07:06:13] - [INIT] => using model 'resnet18', dataset 'caltech101'
-[2022/04/03 07:06:16] - [INIT] => using per_class_accuracy
-[2022/04/03 07:06:16] - 
-                          # VERY IMPORTANT
-        # We report the per-class accuracy using the validation
-        # set distribution. So ignore the training accuracy (as you will see it go
-        # beyond 100. Don't freak out, it doesn't really capture anything),
-        # just look at the validation accuracy
-            
-=> using model 'resnet18', dataset 'caltech101'
-Calculating the class weights ... ... 
-  0%|          | 0/89 [00:00<?, ?it/s]  1%|          | 1/89 [00:10<16:00, 10.92s/it]  4%|▍         | 4/89 [00:11<03:03,  2.16s/it]  7%|▋         | 6/89 [00:11<01:44,  1.26s/it] 12%|█▏        | 11/89 [00:11<00:41,  1.86it/s] 18%|█▊        | 16/89 [00:12<00:22,  3.18it/s] 20%|██        | 18/89 [00:12<00:21,  3.24it/s] 22%|██▏       | 20/89 [00:12<00:18,  3.80it/s] 37%|███▋      | 33/89 [00:13<00:05, 10.31it/s] 43%|████▎     | 38/89 [00:13<00:05,  9.16it/s] 45%|████▍     | 40/89 [00:14<00:05,  9.63it/s] 51%|█████     | 45/89 [00:14<00:03, 12.67it/s] 56%|█████▌    | 50/89 [00:14<00:02, 15.42it/s] 60%|█████▉    | 53/89 [00:15<00:03,  9.29it/s] 64%|██████▍   | 57/89 [00:15<00:02, 10.75it/s] 66%|██████▋   | 59/89 [00:15<00:03,  8.49it/s] 79%|███████▊  | 70/89 [00:16<00:01, 13.82it/s] 81%|████████  | 72/89 [00:16<00:01, 13.09it/s] 84%|████████▍ | 75/89 [00:16<00:00, 14.48it/s] 90%|████████▉ | 80/89 [00:16<00:00, 17.15it/s] 94%|█████████▍| 84/89 [00:16<00:00, 20.21it/s] 98%|█████████▊| 87/89 [00:17<00:00, 15.45it/s]100%|██████████| 89/89 [00:17<00:00,  5.14it/s]
-[2022/04/03 07:06:33] - Loading pretrained weights
-[2022/04/03 07:06:33] - [LOAD] => loading checkpoint '/home/sw99/ResNet_ckpt/resnet18_linf_eps2.0.ckpt'
-[2022/04/03 07:06:33] - [LOAD] => loaded checkpoint '/home/sw99/ResNet_ckpt/resnet18_linf_eps2.0.ckpt' (epoch 90)

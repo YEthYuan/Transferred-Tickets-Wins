@@ -1,15 +1,0 @@
-main_imp.py:120: UserWarning: You have chosen to seed training. This will turn on the CUDNN deterministic setting, which can slow down your training considerably! You may see unexpected behavior when restarting from checkpoints.
-  warnings.warn('You have chosen to seed training. '
-[2022/04/03 07:06:25] - Namespace(alpha=2.5, arch='resnet18', attack_iters=1, attack_type='None', batch_size=64, ckpt_base_dir=PosixPath('runs/R18_cal101_Linf_Eps4/checkpoints'), constraint='L2', data='/home/sw99/datasets/', epochs=10, epsilon=2, evaluate=False, gpu=None, log_dir='runs', lr=0.001, model_path='/home/sw99/ResNet_ckpt/resnet18_linf_eps4.0.ckpt', momentum=0.9, name='R18_cal101_Linf_Eps4', percent=0.2, print_freq=50, pytorch_pretrained=False, random=False, resume='', seed=142, set='caltech101', start_epoch=0, start_state=0, states=19, trainer='default', weight_decay=0.0001, workers=16)
-[2022/04/03 07:06:25] - [INIT] => using model 'resnet18', dataset 'caltech101'
-[2022/04/03 07:06:28] - [INIT] => using per_class_accuracy
-[2022/04/03 07:06:28] - 
-                          # VERY IMPORTANT
-        # We report the per-class accuracy using the validation
-        # set distribution. So ignore the training accuracy (as you will see it go
-        # beyond 100. Don't freak out, it doesn't really capture anything),
-        # just look at the validation accuracy
-            
-=> using model 'resnet18', dataset 'caltech101'
-Calculating the class weights ... ... 
-  0%|          | 0/89 [00:00<?, ?it/s]  1%|          | 1/89 [00:13<19:53, 13.57s/it]
