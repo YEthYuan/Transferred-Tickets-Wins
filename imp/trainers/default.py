@@ -104,10 +104,10 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
             loss = F.cross_entropy(output, y)
 
             loss.backward()
-            if constraint == 'Linf':
+            if args.constraint == 'Linf':
                 delta.data = clamp(delta + alpha * torch.sign(grad), -epsilon * ones, epsilon * ones)
                 delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
-            elif constraint == 'L2':
+            elif args.constraint == 'L2':
                 l = len(X.shape) - 1
                 g_norm = torch.norm(grad.view(grad.shape[0], -1), dim=1).view(-1, *([1]*l))
                 scaled_g  = grad / (g_norm + 1e-10)
@@ -130,10 +130,10 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
 
                 loss.backward()
 
-                if constraint == 'Linf':
+                if args.constraint == 'Linf':
                     delta.data = clamp(delta + alpha * torch.sign(grad), -epsilon * ones, epsilon * ones)
                     delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
-                elif constraint == 'L2':
+                elif args.constraint == 'L2':
                     l = len(X.shape) - 1
                     g_norm = torch.norm(grad.view(grad.shape[0], -1), dim=1).view(-1, *([1]*l))
                     scaled_g  = grad / (g_norm + 1e-10)
