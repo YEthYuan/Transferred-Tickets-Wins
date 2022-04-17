@@ -104,6 +104,7 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
             loss = F.cross_entropy(output, y)
 
             loss.backward()
+            grad = delta.grad.detach()
             if args.constraint == 'Linf':
                 delta.data = clamp(delta + alpha * torch.sign(grad), -epsilon * ones, epsilon * ones)
                 delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
@@ -129,7 +130,7 @@ def train_adv(train_loader, model, criterion, optimizer, epoch, args, writer):
                 loss = criterion(output, y)
 
                 loss.backward()
-
+                grad = delta.grad.detach()
                 if args.constraint == 'Linf':
                     delta.data = clamp(delta + alpha * torch.sign(grad), -epsilon * ones, epsilon * ones)
                     delta.data[:X.size(0)] = clamp(delta[:X.size(0)], lower_limit - X, upper_limit - X)
