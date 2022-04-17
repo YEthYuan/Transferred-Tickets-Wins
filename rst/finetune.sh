@@ -19,4 +19,5 @@ HIP_VISIBLE_DEVICES=$1 python main.py \
     --workers 32 \
     --epsilon 3 \
     --alpha 10 \
-    --attack_iters 7 > ftc10_$2.txt 2>&1 &
+    --automatic_resume \
+    --attack_iters 7 > ftc10_$2.txt 2>&1 & 

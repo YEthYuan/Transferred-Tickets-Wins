@@ -53,7 +53,7 @@ parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data
 parser.add_argument('--downstream', action='store_true')
 
 parser.add_argument('--set', type=str, default='ImageNet', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
-parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
@@ -71,8 +71,8 @@ parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float, metavar
 parser.add_argument('--decreasing_lr', default=None, help='decreasing strategy') # Imagenet upstream IMP
 parser.add_argument('--warmup', default=0, type=int, help='warm up epochs') # Imagenet upstream IMP
 parser.add_argument('--log_dir', default='runs', type=str)
-parser.add_argument('--name', default='R50_cal101_Linf_Eps4', type=str, help='experiment name')
-parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_linf_eps2.0.ckpt',
+parser.add_argument('--name', default='R18_L2_Eps1', type=str, help='experiment name')
+parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_l2_eps1.ckpt',
                     help='path of the pretrained weight')
 # parser.add_argument('--model-path', type=str, default='/home/yuanye/RST/imp/pretrained_models/resnet18_l2_eps3.ckpt',
 #                      help='path of the pretrained weight') # debug
@@ -107,8 +107,8 @@ parser.add_argument('--gpu', default=None, type=int,
 
 # Adv params
 parser.add_argument('--attack_type', default='fgsm-rs', choices=['fgsm', 'fgsm-rs', 'pgd', 'free', 'None'])
-parser.add_argument('--epsilon', default=3, type=int)
-parser.add_argument('--alpha', default=5, type=float, help='Step size')
+parser.add_argument('--epsilon', default=1, type=int)
+parser.add_argument('--alpha', default=1.25, type=float, help='Step size')
 parser.add_argument('--attack_iters', default=1, type=int, help='Attack iterations')
 parser.add_argument('--constraint', default='L2', type=str, choices=['Linf', 'L2'])
 

@@ -24,4 +24,4 @@ HIP_VISIBLE_DEVICES=4,5,6,7 python main.py \
     --alpha 5 \
     --attack_iters 1 \
     --automatic_resume \
-    --constraint Linf > Inf4_$1.txt 2>&1 &
+    --constraint Linf > Inf4_$1.txt 2>&1 & 
