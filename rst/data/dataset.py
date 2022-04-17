@@ -7,12 +7,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torchvision import transforms
-from torchvision.datasets import CIFAR10, CIFAR100, SVHN, ImageFolder, Caltech101, VisionDataset
+from torchvision.datasets import CIFAR10, CIFAR100, SVHN, ImageFolder, Caltech101, VisionDataset, StanfordCars
 from torch.utils.data import DataLoader, Subset, Dataset, ConcatDataset
 from torchvision.datasets.utils import check_integrity, download_and_extract_archive, download_url, verify_str_arg
 
 __all__ = ['cifar10_dataloaders', 'cifar100_dataloaders', 'svhn_dataloaders', 'imagenet_dataloaders',
-           'caltech101_dataloaders', 'dtd_dataloaders', 'flowers_dataloaders', 'pets_dataloaders', 'SUN397_dataloaders']
+           'caltech101_dataloaders', 'dtd_dataloaders', 'flowers_dataloaders', 'pets_dataloaders', 'cars_dataloaders', 'SUN397_dataloaders']
 
 
 def cifar10_dataloaders(args, use_val=True, norm=True):
@@ -503,6 +503,65 @@ def pets_dataloaders(args, use_val=True, norm=True):
 
     return train_loader, dataset_normalization, test_loader
 
+def cars_dataloaders(args, use_val=True, norm=True):
+    if norm:
+
+        normalize = transforms.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.])
+
+        train_transform = transforms.Compose([
+            # transforms.Resize(32),
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+            normalize
+        ])
+        train_set = StanfordCars(args.data, split='train', transform=train_transform,
+                                  download=True)
+        train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+                                  pin_memory=True)
+
+        test_transform = transforms.Compose([
+            # transforms.Resize(32),
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            normalize
+        ])
+        test_set = StanfordCars(args.data, split='test', transform=test_transform,
+                                 download=True)
+        test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                 pin_memory=True)
+
+        dataset_normalization = None
+
+    else:
+
+        train_transform = transforms.Compose([
+            # transforms.Resize(32),
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor(),
+        ])
+        train_set = StanfordCars(args.data, split='train', transform=train_transform,
+                                  download=True)
+        train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.workers,
+                                  pin_memory=True)
+
+        test_transform = transforms.Compose([
+            # transforms.Resize(32),
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+        ])
+        test_set = StanfordCars(args.data, split='test', transform=test_transform,
+                                 download=True)
+        test_loader = DataLoader(test_set, batch_size=args.batch_size, shuffle=False, num_workers=args.workers,
+                                 pin_memory=True)
+
+        dataset_normalization = NormalizeByChannelMeanStd(mean=[0., 0., 0.], std=[1., 1., 1.])
+
+    return train_loader, dataset_normalization, test_loader
+    
 
 def SUN397_dataloaders(args, use_val=True, norm=True):
     if norm:

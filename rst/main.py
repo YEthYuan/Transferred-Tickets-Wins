@@ -89,7 +89,7 @@ def main_worker(args):
     # model = get_model(args, data.data_norm)
 
     if args.per_class_accuracy:
-        assert args.set in ['pets', 'caltech101', 'flowers'], \
+        assert args.set in ['pets', 'caltech101', 'flowers', 'cars'], \
             f'Per-class accuracy not supported for the {args.set} dataset.'
 
         # VERY IMPORTANT
@@ -572,6 +572,10 @@ def get_model_dataset(args):
         args.classes = 37
         args.per_class_accuracy = True
         train_loader, data_norm, test_loader = pets_dataloaders(args, use_val=False, norm=False)
+    elif args.set == 'cars':
+        args.classes = 196
+        args.per_class_accuracy = True
+        train_loader, data_norm, test_loader = cars_dataloaders(args, use_val=False, norm=False)
     elif args.set == 'sun':
         args.classes = 397
         args.per_class_accuracy = False
