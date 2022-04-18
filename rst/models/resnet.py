@@ -116,10 +116,10 @@ class ResNet(nn.Module):
 
         if args.first_layer_dense:
             self.conv1 = nn.Conv2d(
-                3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False
+                3, self.inplanes, kernel_size=7, stride=1, padding=3, bias=False
             )
         else:
-            self.conv1 = builder.conv7x7(3, 64, stride=2, first_layer=True)
+            self.conv1 = builder.conv7x7(3, 64, stride=1, first_layer=True)
 
         self.bn1 = builder.batchnorm(64)
         self.relu = builder.activation()

@@ -133,7 +133,7 @@ def svhn_dataloaders(args, use_val=True, norm=True):
 
         train_transform = transforms.Compose([
             transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
+            # transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize
         ])
@@ -157,7 +157,7 @@ def svhn_dataloaders(args, use_val=True, norm=True):
 
         train_transform = transforms.Compose([
             transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
+            # transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
         ])
         train_set = SVHN(args.data, split='train', transform=train_transform, download=True)

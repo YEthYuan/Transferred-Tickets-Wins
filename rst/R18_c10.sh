@@ -5,10 +5,10 @@ CUDA_VISIBLE_DEVICES=$1 python main.py \
   --attack_type None \
   --prune-rate $2 \
   --task search \
-  --set flowers \
+  --set svhn \
   --data /home/sw99/datasets \
   --pytorch-pretrained \
-  --name flowers_search \
+  --name svhn_search \
   --config config_rst/resnet18-ukn-unsigned-imagenet.yaml \
   --conv_type SubnetConv \
   --epochs 160 \
@@ -21,5 +21,5 @@ CUDA_VISIBLE_DEVICES=$1 python main.py \
   --workers 32 \
   --epsilon 3 \
   --alpha 10 \
-  --attack_iters 7 > flowers_$2.txt 2>&1 &
+  --attack_iters 7 > svhn_$2.txt 2>&1 &
 
