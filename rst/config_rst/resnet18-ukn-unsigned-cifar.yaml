@@ -19,7 +19,7 @@ batch_size: 256
 
 # ===== Sparsity =========== #
 conv_type: SubnetConv
-bn_type: NonAffineBatchNorm
+bn_type: LearnedBatchNorm
 freeze_weights: True
 prune_rate: -1 # Override
 init: kaiming_normal

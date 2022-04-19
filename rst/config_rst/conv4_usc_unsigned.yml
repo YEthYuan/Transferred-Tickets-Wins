@@ -19,7 +19,7 @@ batch_size: 128
 
 # ===== Sparsity =========== #
 conv_type: SubnetConv
-bn_type: NonAffineBatchNorm
+bn_type: LearnedBatchNorm
 freeze_weights: True
 prune_rate: -1
 init: signed_constant
