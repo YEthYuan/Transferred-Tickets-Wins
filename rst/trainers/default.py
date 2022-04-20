@@ -378,6 +378,7 @@ def validate_adv(val_loader, model, criterion, args, writer, epoch):
         # measure accuracy and record loss
         model_logits = output[0] if (type(output) is tuple) else output
         if has_attr(args, "custom_accuracy"):
+            # print("using custom accuracy")
             acc1, acc5 = args.custom_accuracy(model_logits, y)
         else:
             acc1, acc5 = accuracy(model_logits, y, topk=(1, 5))
@@ -527,6 +528,7 @@ def validate(val_loader, model, criterion, args, writer, epoch):
             # measure accuracy and record loss
             model_logits = output[0] if (type(output) is tuple) else output
             if has_attr(args, "custom_accuracy"):
+                # print("using custom accuracy")
                 acc1, acc5 = args.custom_accuracy(model_logits, y)
             else:
                 acc1, acc5 = accuracy(model_logits, y, topk=(1, 5))

@@ -49,7 +49,7 @@ class SubnetConv(nn.Conv2d):
 
     def init_weight_with_score(self, prune_rate):
         self.weight.data = self.weight.data * GetSubnet.apply(self.clamped_scores, prune_rate).data
-        self.use_subset = False
+        self.use_subset = True
 
     @property
     def clamped_scores(self):
@@ -114,7 +114,7 @@ class SubnetConv_filter(nn.Conv2d):
 
     def init_weight_with_score(self, prune_rate):
         self.weight.data = self.weight.data * GetSubnet.apply(self.clamped_scores, prune_rate).view(self.weight.size()[0], 1, 1, 1).data
-        self.use_subset = False
+        self.use_subset = True
 
     @property
     def clamped_scores(self):
@@ -170,7 +170,7 @@ class SubnetConv_kernel(nn.Conv2d):
 
     def init_weight_with_score(self, prune_rate):
         self.weight.data = self.weight.data * GetSubnet.apply(self.clamped_scores, prune_rate).view(self.weight.size()[0], self.weight.size()[1], 1, 1).data
-        self.use_subset = False
+        self.use_subset = True
         
     @property
     def clamped_scores(self):
@@ -226,7 +226,7 @@ class SubnetConv_row(nn.Conv2d):
 
     def init_weight_with_score(self, prune_rate):
         self.weight.data = self.weight.data * GetSubnet.apply(self.clamped_scores, prune_rate).view(self.weight.size()[0], self.weight.size()[1], self.weight.size()[2], 1).data
-        self.use_subset = False
+        self.use_subset = True
 
     @property
     def clamped_scores(self):

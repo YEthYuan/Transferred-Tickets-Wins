@@ -147,7 +147,7 @@ def main_worker(args):
 
         # finetune the whole model with the initialization to be the robust ticket
         if args.task == 'ft_full':
-            init_model_weight_with_score(model, prune_rate=args.prune_rate)
+            init_model_weight_with_score(model, prune_rate=1-args.prune_rate)
             # set_model_prune_rate(model, prune_rate=1.0)
             if args.freeze_level != -1:
                 freeze_model(log, model, freeze_level=args.freeze_level)
@@ -242,6 +242,7 @@ def main_worker(args):
         modifier(args, epoch, model)
 
         cur_lr = get_lr(optimizer)
+        print(cur_lr)
 
         # train for one epoch
         start_train = time.time()
@@ -559,7 +560,7 @@ def get_model_dataset(args):
     elif args.set == 'caltech101':
         args.classes = 102
         args.per_class_accuracy = True
-        train_loader, data_norm, test_loader = caltech101_dataloaders(args, use_val=False, norm=False)
+        train_loader, data_norm, test_loader = caltech101_dataloaders(args, use_val=False, norm=True)
     elif args.set == 'dtd':
         args.classes = 47
         args.per_class_accuracy = False
@@ -602,7 +603,7 @@ def get_model_dataset(args):
         if args.prune_rate < 0:
             raise ValueError("Need to set a positive prune rate")
 
-        set_model_prune_rate(model, prune_rate=args.prune_rate)
+        set_model_prune_rate(model, prune_rate=1-args.prune_rate)
         print(
             f"=> Rough estimate model params {sum(int(p.numel() * (1 - args.prune_rate)) for n, p in model.named_parameters() if not n.endswith('scores'))}"
         )
