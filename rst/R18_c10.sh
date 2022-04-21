@@ -8,12 +8,12 @@ CUDA_VISIBLE_DEVICES=$1 python main.py \
   --set svhn \
   --data /home/sw99/datasets \
   --pytorch-pretrained \
-  --name svhn_search \
+  --name svhn \
   --config config_rst/resnet18-ukn-unsigned-imagenet.yaml \
   --conv_type SubnetConv \
   --epochs 160 \
   --optimizer sgd \
-  --lr 0.1 \
+  --lr 1.0 \
   --lr_policy cifar_piecewise \
   --batch_size 256 \
   --weight-decay 0.0005 \
@@ -21,5 +21,5 @@ CUDA_VISIBLE_DEVICES=$1 python main.py \
   --workers 32 \
   --epsilon 3 \
   --alpha 10 \
-  --attack_iters 7 > svhn_$2.txt 2>&1 &
+  --attack_iters 7 > svhn_$1.txt 2>&1 &
 

@@ -552,7 +552,7 @@ def get_model_dataset(args):
     elif args.set == 'svhn':
         args.classes = 10
         args.per_class_accuracy = False
-        train_loader, data_norm, test_loader = svhn_dataloaders(args, use_val=False, norm=True)
+        train_loader, data_norm, test_loader = svhn_dataloaders(args, use_val=False, norm=False)
     elif args.set == 'ImageNet':
         args.classes = 1000
         args.per_class_accuracy = False
