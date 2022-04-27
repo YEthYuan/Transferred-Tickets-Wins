@@ -5,8 +5,8 @@
 # DETECTION_PATH = "/ssd2/tlchen/syd/04_Yolo"
 # DETECTION_PATH = "/ssd1/tianlong/syd/04_Yolo"
 # DETECTION_PATH = "/ssd2/tlchen/syd/04_CVTickets/03_Yolov4"
-DETECTION_PATH = "/data/syd/04_CVTickets/03_Yolov4"
-DATA_PATH = DETECTION_PATH + "/data"
+# DETECTION_PATH = "/home/yuanye/data/VOCdevkit"
+DATA_PATH = "/home/yuanye/RST/Detection/data"
 PROJECT_PATH = DATA_PATH
 
 
@@ -33,7 +33,7 @@ TRAIN = {
     "MULTI_SCALE_TRAIN": False,
     "IOU_THRESHOLD_LOSS": 0.5,
     "YOLO_EPOCHS": 50,
-    "Mobilenet_YOLO_EPOCHS": 120,
+    "Mobilenet_YOLO_EPOCHS": 50,
     "NUMBER_WORKERS": 8,
     "MOMENTUM": 0.9,
     "WEIGHT_DECAY": 0.0005,

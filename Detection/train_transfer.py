@@ -156,41 +156,42 @@ class Trainer(object):
             print("Use resnet50 [imagnet] weight")
             print("-" * 100)
 
-        elif self.args.transfer_type == 'moco':
-            print("-" * 100)
-            print("load resnet50 [moco] weight")
-            print("-" * 100)
-            moco_ckpt = torch.load('./weight/moco_v2_800ep_pretrain.pth.tar', map_location='cuda')['state_dict']
-            resnet50_pytorch = models.resnet50(pretrained=False)
-            moco_state_dict = {k[17:] : v for k , v in moco_ckpt.items() if k[17:] in resnet50_pytorch.state_dict().keys()}
-            overlap_state_dict = {k : v for k , v in moco_state_dict.items() if k in self.yolov4._Build_Model__yolov4.backbone.state_dict().keys()} 
-            print("MOCO Overlap[{}/{}]".format(overlap_state_dict.keys().__len__(), self.yolov4._Build_Model__yolov4.backbone.state_dict().keys().__len__()))
-            ori = self.yolov4._Build_Model__yolov4.backbone.state_dict()
-            ori.update(overlap_state_dict)
-            self.yolov4._Build_Model__yolov4.backbone.load_state_dict(ori)
-
-        elif self.args.transfer_type == 'simclr':
-            print("-" * 100)
-            print("load resnet50 [SimCLR] weight")
-            print("-" * 100)
-            base_weights = torch.load('./weight/simclr_weight.pt', map_location='cuda')['state_dict']
-            overlap_state_dict = {k : v for k , v in base_weights.items() if k in self.yolov4._Build_Model__yolov4.backbone.state_dict().keys()} 
-            print("SimCLR Overlap[{}/{}]".format(overlap_state_dict.keys().__len__(), self.yolov4._Build_Model__yolov4.backbone.state_dict().keys().__len__()))
-            self.yolov4._Build_Model__yolov4.backbone.load_state_dict(overlap_state_dict)
+        # elif self.args.transfer_type == 'moco':
+        #     print("-" * 100)
+        #     print("load resnet50 [moco] weight")
+        #     print("-" * 100)
+        #     moco_ckpt = torch.load('./weight/moco_v2_800ep_pretrain.pth.tar', map_location='cuda')['state_dict']
+        #     resnet50_pytorch = models.resnet50(pretrained=False)
+        #     moco_state_dict = {k[17:] : v for k , v in moco_ckpt.items() if k[17:] in resnet50_pytorch.state_dict().keys()}
+        #     overlap_state_dict = {k : v for k , v in moco_state_dict.items() if k in self.yolov4._Build_Model__yolov4.backbone.state_dict().keys()}
+        #     print("MOCO Overlap[{}/{}]".format(overlap_state_dict.keys().__len__(), self.yolov4._Build_Model__yolov4.backbone.state_dict().keys().__len__()))
+        #     ori = self.yolov4._Build_Model__yolov4.backbone.state_dict()
+        #     ori.update(overlap_state_dict)
+        #     self.yolov4._Build_Model__yolov4.backbone.load_state_dict(ori)
+        #
+        # elif self.args.transfer_type == 'simclr':
+        #     print("-" * 100)
+        #     print("load resnet50 [SimCLR] weight")
+        #     print("-" * 100)
+        #     base_weights = torch.load('./weight/simclr_weight.pt', map_location='cuda')['state_dict']
+        #     overlap_state_dict = {k : v for k , v in base_weights.items() if k in self.yolov4._Build_Model__yolov4.backbone.state_dict().keys()}
+        #     print("SimCLR Overlap[{}/{}]".format(overlap_state_dict.keys().__len__(), self.yolov4._Build_Model__yolov4.backbone.state_dict().keys().__len__()))
+        #     self.yolov4._Build_Model__yolov4.backbone.load_state_dict(overlap_state_dict)
         else: assert False
 
-        OUTDIR = 'seed{}_{}_transfer_ckpt'.format(self.args.seed, self.args.transfer_type)
-        OUTDIRS = OUTDIR + '/model{}'.format(self.args.mask_num)
+        OUTDIR = 'seed{}_transfer_ckpt'.format(self.args.seed)
+        OUTDIRS = OUTDIR + '/eps{}'.format(self.args.eps)
         if not os.path.exists(OUTDIRS): os.makedirs(OUTDIRS)
 
-        print("Mask DIR:[{}]".format(self.args.mask_dir))
-        mask_dict = torch.load(self.args.mask_dir, map_location="cuda")
-        pruning.imp_pruning_yolo_resnet50(self.yolov4._Build_Model__yolov4.backbone, mask_dict)
-        pruning.see_zero_rate(self.yolov4._Build_Model__yolov4.backbone)
-        print("-" * 100)
-        print("INFO: Finish Process!")
-        print("INFO: Begin Training Model")
-        print('-' * 100)
+        if not self.args.full_model_transfer:
+            print("Mask DIR:[{}]".format(self.args.mask_dir))
+            mask_dict = torch.load(self.args.mask_dir, map_location="cuda")
+            pruning.imp_pruning_yolo_resnet50(self.yolov4._Build_Model__yolov4.backbone, mask_dict)
+            pruning.see_zero_rate(self.yolov4._Build_Model__yolov4.backbone)
+            print("-" * 100)
+            print("INFO: Finish Process!")
+            print("INFO: Begin Training Model")
+            print('-' * 100)
 
         if self.args.resume_all:
             self.start_epoch = pruning.resume_begin(self.yolov4, self.optimizer, OUTDIRS)
@@ -283,13 +284,13 @@ class Trainer(object):
             
         end = time.time()
         logger.info("  ===cost time:{:.4f}s".format(end - start))
-        logger.info("syd {} AP:[{:.4f}] AP50:[{:.4f}] AP75:[{:.4f}]".format(self.args.mask_num, ap_final,ap50,ap75))
+        logger.info("eps {} AP:[{:.4f}] AP50:[{:.4f}] AP75:[{:.4f}]".format(self.args.eps, ap_final,ap50,ap75))
         
         print('-' * 100)
         print("Finish Training")
-        save_name = './' + OUTDIR + '/transfer_{}.pth'.format(self.args.mask_num)
-        torch.save(self.yolov4.state_dict(), save_name)
-        print("Save: [{}]".format(save_name))
+        save_name = './' + OUTDIR + '/transfer_{}.pth'.format(self.args.eps)
+        # torch.save(self.yolov4.state_dict(), save_name)
+        # print("Save: [{}]".format(save_name))
         print('-' * 100)
 
 
@@ -298,13 +299,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--resume_all",action="store_true",default=False,help="resume training flag")
     parser.add_argument('--transfer_type', default='imagenet', type=str, help='imagenet, moco, simclr')     
-    parser.add_argument('--mask_dir', default='', type=str, help='imagenet, moco, simclr') 
-    parser.add_argument('--mask_num', default=-1, type=int, help='mask number')
-    parser.add_argument('--seed', default=1, type=int, help='Seed')  
+    parser.add_argument('--mask_dir', default='', type=str, help='imagenet, moco, simclr')
+    parser.add_argument('--full_model_transfer', action='store_true', default=True, help="full model transfer baseline")
+    parser.add_argument('--eps', default=0.01, type=int, help='mask number')
+    parser.add_argument('--seed', default=142, type=int, help='Seed')
     parser.add_argument(
         "--weight_path",
         type=str,
-        default="weight/mobilenetv2.pth",
+        default="/home/yuanye/RST/imp/pretrained_models/resnet50_l2_eps0.03.ckpt",
         help="weight file path",
     )  # weight/darknet53_448.weights
     parser.add_argument(

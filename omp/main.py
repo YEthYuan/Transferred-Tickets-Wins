@@ -134,7 +134,7 @@ def main(args, store):
             'orig_model_name': args.model_path
         }
         ckpt_save_path = os.path.join(args.mask_save_dir, ("nat" if args.pytorch_pretrained else "adv") + (
-            "_s" if args.structural_prune else "_uns") + f"_pr{args.prune_rate}_ticket_ImageNet.pth")
+            "_s" if args.structural_prune else "_uns") + f"_eps{args.prune_rate}" + f"_pr{args.prune_rate}_ticket_ImageNet.pth")
         ch.save(sd_info, ckpt_save_path)
         return
 
