@@ -1,0 +1,3 @@
+*.txt
+*.ckpt
+__pycache__
