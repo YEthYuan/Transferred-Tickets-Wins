@@ -4,27 +4,38 @@ from datasets import VOCSegmentation, Cityscapes
 import utils
 import torch
 
+
 def get_argparser():
-    
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("exp", type=str, default='',
-                        help="path to exp")
-
+    # parser.add_argument("--exp", type=str, default='debug_runs',
+    #                     help="path to exp")
+    parser.add_argument('--log_dir', default='runs', type=str)
+    parser.add_argument('--name', default='debug_runs', type=str, help='experiment name')
     parser.add_argument("--imp_num", type=int, help="imp times")
-
+    parser.add_argument('--prune_method', default='omp', type=str, help='omp, omp_structured, imp, rst')
+    parser.add_argument('--prune_rate', default=0.2, type=float)
+    parser.add_argument('--full_model_transfer', action='store_true', default=False,
+                        help="full model transfer baseline")
     parser.add_argument("--mask_dir", type=str, default='',
                         help="path to Dataset")
     # Datset Options
-    parser.add_argument("--data_root", type=str, default='./datasets/data',
+    parser.add_argument("--data_root", type=str,
+                        # default='/home/yuanye/data',
+                        default="/home/yuanye/data/cityscapes",  # cityscapes
                         help="path to Dataset")
-    parser.add_argument("--dataset", type=str, default='voc',
+    parser.add_argument('--eps', default=0, type=float, help='epsilon')
+    parser.add_argument("--model_path", type=str,
+                        # default=None,
+                        default="/home/yuanye/RST/Detection/pretrained_models/resnet50_l2_eps0.1.ckpt",
+                        help="path to pretrained model")
+    parser.add_argument("--dataset", type=str, default='cityscapes',
                         choices=['voc', 'cityscapes'], help='Name of dataset')
     parser.add_argument("--num_classes", type=int, default=None,
                         help="num classes (default: None)")
     # Deeplab Options
     parser.add_argument("--model", type=str, default='deeplabv3plus_resnet50',
-                        choices=['deeplabv3_resnet50',  'deeplabv3plus_resnet50',
+                        choices=['deeplabv3_resnet50', 'deeplabv3plus_resnet50',
                                  'deeplabv3_resnet101', 'deeplabv3plus_resnet101',
                                  'deeplabv3_mobilenet', 'deeplabv3plus_mobilenet'], help='model name')
     parser.add_argument("--separable_conv", action='store_true', default=False,
@@ -33,6 +44,7 @@ def get_argparser():
 
     # Train Options
     parser.add_argument("--test_only", action='store_true', default=False)
+    parser.add_argument("--pytorch_pretrained", action='store_true', default=False)
     parser.add_argument("--save_val_results", action='store_true', default=False,
                         help="save segmentation results to \"./results\"")
     parser.add_argument("--total_itrs", type=int, default=30e3,
@@ -42,13 +54,14 @@ def get_argparser():
     parser.add_argument("--lr_policy", type=str, default='poly', choices=['poly', 'step'],
                         help="learning rate scheduler policy")
     parser.add_argument("--step_size", type=int, default=10000)
-    parser.add_argument("--crop_val", action='store_true', default=False,
+    parser.add_argument("--crop_val", action='store_true', default=True,
                         help='crop validation (default: False)')
-    parser.add_argument("--batch_size", type=int, default=16,
+    parser.add_argument("--batch_size", type=int, default=4,
                         help='batch size (default: 16)')
     parser.add_argument("--val_batch_size", type=int, default=4,
                         help='batch size for validation (default: 4)')
     parser.add_argument("--crop_size", type=int, default=513)
+    parser.add_argument('--conv1', action='store_true', help="if true, prune the conv1, else skip it")
     parser.add_argument("--ckpt", default=None, type=str,
                         help="restore from checkpoint")
     parser.add_argument("--continue_training", action='store_true', default=False)
@@ -58,7 +71,7 @@ def get_argparser():
                         help="GPU ID")
     parser.add_argument("--weight_decay", type=float, default=1e-4,
                         help='weight decay (default: 1e-4)')
-    parser.add_argument("--random_seed", type=int, default=1,
+    parser.add_argument("--random_seed", type=int, default=142,
                         help="random seed (default: 1)")
     parser.add_argument("--print_interval", type=int, default=10,
                         help="print interval of loss (default: 10)")
@@ -86,7 +99,7 @@ def get_dataset(opts):
     """
     if opts.dataset == 'voc':
         train_transform = et.ExtCompose([
-            #et.ExtResize(size=opts.crop_size),
+            # et.ExtResize(size=opts.crop_size),
             et.ExtRandomScale((0.5, 2.0)),
             et.ExtRandomCrop(size=(opts.crop_size, opts.crop_size), pad_if_needed=True),
             et.ExtRandomHorizontalFlip(),
@@ -115,9 +128,9 @@ def get_dataset(opts):
 
     if opts.dataset == 'cityscapes':
         train_transform = et.ExtCompose([
-            #et.ExtResize( 512 ),
+            # et.ExtResize( 512 ),
             et.ExtRandomCrop(size=(opts.crop_size, opts.crop_size)),
-            et.ExtColorJitter( brightness=0.5, contrast=0.5, saturation=0.5 ),
+            et.ExtColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),
             et.ExtRandomHorizontalFlip(),
             et.ExtToTensor(),
             et.ExtNormalize(mean=[0.485, 0.456, 0.406],
@@ -125,7 +138,7 @@ def get_dataset(opts):
         ])
 
         val_transform = et.ExtCompose([
-            #et.ExtResize( 512 ),
+            # et.ExtResize( 512 ),
             et.ExtToTensor(),
             et.ExtNormalize(mean=[0.485, 0.456, 0.406],
                             std=[0.229, 0.224, 0.225]),
@@ -138,7 +151,6 @@ def get_dataset(opts):
     return train_dst, val_dst
 
 
-
 def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
     """Do validation and return specified samples"""
     metrics.reset()
@@ -146,13 +158,13 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
     if opts.save_val_results:
         if not os.path.exists('results'):
             os.mkdir('results')
-        denorm = utils.Denormalize(mean=[0.485, 0.456, 0.406], 
+        denorm = utils.Denormalize(mean=[0.485, 0.456, 0.406],
                                    std=[0.229, 0.224, 0.225])
         img_id = 0
 
     with torch.no_grad():
         for i, (images, labels) in enumerate(loader):
-            
+
             images = images.to(device, dtype=torch.float32)
             labels = labels.to(device, dtype=torch.long)
 
@@ -192,9 +204,6 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
 
         score = metrics.get_results()
     return score, ret_samples
-
-
-
 
 
 def print_args(args, str_num=80):

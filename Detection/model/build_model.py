@@ -14,7 +14,7 @@ class Build_Model(nn.Module):
     Note ： int the __init__(), to define the modules should be in order, because of the weight file is order
     """
 
-    def __init__(self, weight_path=None, resume=False):
+    def __init__(self, weight_path=None, resume=False, pretrained=False):
         super(Build_Model, self).__init__()
 
         self.__anchors = torch.FloatTensor(cfg.MODEL["ANCHORS"])
@@ -31,6 +31,7 @@ class Build_Model(nn.Module):
             weight_path=weight_path,
             out_channels=self.__out_channel,
             resume=resume,
+            pretrained=pretrained
         )
         # small
         self.__head_s = Yolo_head(

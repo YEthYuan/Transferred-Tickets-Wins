@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -246,7 +248,7 @@ class PredictNet(nn.Module):
 
 
 class YOLOv4(nn.Module):
-    def __init__(self, weight_path=None, out_channels=255, resume=False):
+    def __init__(self, weight_path=None, out_channels=255, resume=False, pretrained=False):
         super(YOLOv4, self).__init__()
         
         a = cfg.MODEL_TYPE["TYPE"]
@@ -269,9 +271,34 @@ class YOLOv4(nn.Module):
         elif cfg.MODEL_TYPE["TYPE"] == "Resnet50-YOLOv4":
             # MobilenetV3 backbone
             self.backbone = _BuildResnet50(
-                pretrained=True
+                pretrained=pretrained
             )
             feature_channels = [512,1024,2048]
+
+            if(pretrained and weight_path is not None):
+                raise RuntimeError('You cannot set pytorch-pretrained=True and weight_path at the same time!')
+
+            # Load pretrained weight
+            if weight_path:
+                print('resume the model from ', weight_path)
+                pretrained = torch.load(weight_path)
+                try:
+                    sd = pretrained["state_dict"]
+                except:
+                    sd = pretrained['model']
+
+                new_state_dict = OrderedDict()
+                for k, v in sd.items():
+                    if 'attacker' in k:
+                        break
+                    if 'normalize' not in k:
+                        name = k[len('module.model.'):]
+                        new_state_dict[name] = v
+                self.backbone.load_state_dict(new_state_dict, strict=True)
+            elif pretrained:
+                print('use the pytorch-pretrained ResNet-50 as backbone')
+            else:
+                print('use the random initialized ResNet-50 as backbone')
             
         else:
             assert print("model type must be YOLOv4 or Mobilenet-YOLOv4")

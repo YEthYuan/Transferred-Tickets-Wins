@@ -71,7 +71,7 @@ def _load_model(arch_type, backbone, num_classes, output_stride, pretrained_back
 
 # Deeplab v3
 
-def deeplabv3_resnet50(num_classes=21, output_stride=8, pretrained_backbone=True):
+def deeplabv3_resnet50(num_classes=21, output_stride=8, pretrained_backbone=False):
     """Constructs a DeepLabV3 model with a ResNet-50 backbone.
 
     Args:
@@ -104,7 +104,7 @@ def deeplabv3_mobilenet(num_classes=21, output_stride=8, pretrained_backbone=Tru
 
 # Deeplab v3+
 
-def deeplabv3plus_resnet50(num_classes=21, output_stride=8, pretrained_backbone=True):
+def deeplabv3plus_resnet50(num_classes=21, output_stride=8, pretrained_backbone=False):
     """Constructs a DeepLabV3 model with a ResNet-50 backbone.
 
     Args:
