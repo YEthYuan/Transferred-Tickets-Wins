@@ -21,15 +21,15 @@ def get_argparser():
                         help="path to Dataset")
     # Datset Options
     parser.add_argument("--data_root", type=str,
-                        # default='/home/yuanye/data',
-                        default="/home/yuanye/data/cityscapes",  # cityscapes
+                        default='/home/yuanye/data',
+                        # default="/home/yuanye/data/cityscapes",  # cityscapes
                         help="path to Dataset")
     parser.add_argument('--eps', default=0, type=float, help='epsilon')
     parser.add_argument("--model_path", type=str,
                         # default=None,
                         default="/home/yuanye/RST/Detection/pretrained_models/resnet50_l2_eps0.1.ckpt",
                         help="path to pretrained model")
-    parser.add_argument("--dataset", type=str, default='cityscapes',
+    parser.add_argument("--dataset", type=str, default='voc',
                         choices=['voc', 'cityscapes'], help='Name of dataset')
     parser.add_argument("--num_classes", type=int, default=None,
                         help="num classes (default: None)")
