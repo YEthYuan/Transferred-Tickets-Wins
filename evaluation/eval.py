@@ -28,6 +28,8 @@ from robustness.tools.helpers import has_attr
 import tqdm
 from ignite.contrib.metrics import ROC_AUC
 from sklearn.metrics import roc_auc_score
+from torch.utils.data import DataLoader
+from torchvision.datasets import ImageFolder
 
 import models
 from matplotlib import pyplot as plt
@@ -45,6 +47,8 @@ model_names = sorted(name for name in models.__dict__
 parser = argparse.ArgumentParser(description='PyTorch Evaluation Tickets')
 ############################# required settings ################################
 parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data',
+                    help='path to dataset')
+parser.add_argument('--cifar10_c_dir', metavar='DIR', default='/home/yuanye/data',
                     help='path to dataset')
 parser.add_argument('--set', type=str, default='cifar10',
                     help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
@@ -108,6 +112,13 @@ parser.add_argument('--remove_local_ckpt', action='store_true',
                     default=False)
 parser.add_argument('--remote_dir', type=str, default='sw99@eic-2020gpu6.ece.rice.edu:/data1/sw99/remote_ckpt/imp',
                     help='path to scp the model, make sure you have all keys set')
+
+CORRUPTIONS = [
+    'gaussian_noise', 'shot_noise', 'impulse_noise', 'defocus_blur',
+    'glass_blur', 'motion_blur', 'zoom_blur', 'snow', 'frost', 'fog',
+    'brightness', 'contrast', 'elastic_transform', 'pixelate',
+    'jpeg_compression'
+]
 
 
 def main():
@@ -198,7 +209,7 @@ def main_worker(gpu, args):
         new_state_dict_no_fc = OrderedDict()
         sd = checkpoint['state_dict']
         for k, v in sd.items():
-            #name = k[len('module.'):]
+            # name = k[len('module.'):]
             if 'attacker' in k:
                 break
             if 'normalize' not in k:
@@ -257,14 +268,17 @@ def main_worker(gpu, args):
     """
 
     # III. Natural Perturbation
+    preprocess = transforms.Compose(
+        [transforms.ToTensor(),
+         transforms.Normalize([0.5] * 3, [0.5] * 3)])
+    test_transform = preprocess
+    test_data = datasets.CIFAR10(root=args.data, train=False, transform=test_transform, download=True)
+    corruption_acc = test_c(args, model.module, test_data, args.cifar10_c_dir)
+    log.info("[EVAL] corruption_acc: %.2f", corruption_acc)
 
+    # IV. Uncertainty Estimation
 
-
-
-
-    # IV. Uncertainty
-
-
+    # TODO: Section 4.4 Uncertainty Estimation
 
 
 def get_directories(args):
@@ -769,7 +783,6 @@ def validate(val_loader, model, criterion, args, writer):
             # measure accuracy and record loss
             # model_logits = output[0] if (type(output) is tuple) else output
 
-
             # if has_attr(args, "custom_accuracy"):
             #     # print("using custom accuracy")
             #     acc1, acc5 = args.custom_accuracy(model_logits, y)
@@ -798,6 +811,47 @@ def validate(val_loader, model, criterion, args, writer):
         progress.display(len(val_loader))
 
     return ovr.avg, ovo.avg
+
+
+def test_c(args, net, test_data, base_path):
+    """Evaluate network on given corrupted dataset."""
+    corruption_accs = []
+    for corruption in CORRUPTIONS:
+        # Reference to original data is mutated
+        test_data.data = np.load(base_path + corruption + '.npy')
+        test_data.targets = torch.LongTensor(np.load(base_path + 'labels.npy'))
+
+        test_loader = torch.utils.data.DataLoader(
+            test_data,
+            batch_size=args.batch_size,
+            shuffle=False,
+            num_workers=args.num_workers,
+            pin_memory=True)
+
+        test_loss, test_acc = test(net, test_loader)
+        corruption_accs.append(test_acc)
+        print('{}\n\tTest Loss {:.3f} | Test Error {:.3f}'.format(
+            corruption, test_loss, 100 - 100. * test_acc))
+
+    return np.mean(corruption_accs)
+
+
+def test(net, test_loader):
+    """Evaluate network on given dataset."""
+    net.eval()
+    total_loss = 0.
+    total_correct = 0
+    with torch.no_grad():
+        for images, targets in test_loader:
+            images, targets = images.cuda(), targets.cuda()
+            logits = net(images)
+            loss = F.cross_entropy(logits, targets)
+            pred = logits.data.max(1)[1]
+            total_loss += float(loss.data)
+            total_correct += pred.eq(targets.data).sum().item()
+
+    return total_loss / len(test_loader.dataset), total_correct / len(
+        test_loader.dataset)
 
 
 if __name__ == '__main__':
