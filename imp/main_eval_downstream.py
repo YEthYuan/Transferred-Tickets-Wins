@@ -52,7 +52,7 @@ parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet50)')
-parser.add_argument('--epochs', default=2, type=int, metavar='N',
+parser.add_argument('--epochs', default=150, type=int, metavar='N',
                     help='number of total epochs to run')
 parser.add_argument('-b', '--batch-size', default=64, type=int,
                     metavar='N',
@@ -64,9 +64,9 @@ parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
 parser.add_argument('--decreasing_lr', default='50,100', help='decreasing strategy')
 parser.add_argument('--log_dir', default='runs', type=str)
 parser.add_argument('--name', default='debug_runs', type=str, help='experiment name')
-parser.add_argument('--weight_dir', type=str, default='/home/yuanye/RST/imp/tickets/R18_inf2/weight_init.pth.tar',
+parser.add_argument('--weight_dir', type=str, default='',
                     help='path of the pretrained weight')
-parser.add_argument('--mask_dir', type=str, default='/home/yuanye/RST/imp/tickets/R18_inf2/mask_state0_sp80.0.pth.tar',
+parser.add_argument('--mask_dir', type=str, default='',
                     help='path of the extracted mask')
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained natural weight.')
