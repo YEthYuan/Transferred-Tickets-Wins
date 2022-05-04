@@ -6,9 +6,9 @@ from robustness import data_augmentation as da
 from . import constants as cs
 
 class FOOD101():
-    def __init__(self):
-        self.TRAIN_PATH = cs.FOOD_PATH+"/train"
-        self.VALID_PATH = cs.FOOD_PATH+"/valid"
+    def __init__(self, path):
+        self.TRAIN_PATH = path+"/train"
+        self.VALID_PATH = path+"/valid"
 
         self.train_ds, self.valid_ds, self.train_cls, self.valid_cls = [None]*4
    

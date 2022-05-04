@@ -1,9 +1,8 @@
 import os
 import time
-import thread
 import logging
 
-pydir = r"/home/sw99/.conda/envs/pytorch/bin/python"
+pydir = r"/home/yonggan/anaconda3/envs/pytorch/bin/python"
 arch = "resnet50"
 cuda = 0  # "deltacuda"
 run_mode = 3  # 0: 0.1~0.9  1: 0.91~0.99  2: all rate  3: only zero

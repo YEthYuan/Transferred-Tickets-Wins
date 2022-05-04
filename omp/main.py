@@ -64,6 +64,8 @@ parser.add_argument('--only-extract-mask', action='store_true',
                     help='If True, only extract the ticket from Imagenet pretrained model')
 parser.add_argument('--cifar10-cifar10', action='store_true',
                     help='cifar10 to cifar10 transfer')
+parser.add_argument('--not_save', action='store_true', default=False,
+                    help='cifar10 to cifar10 transfer')
 parser.add_argument('--shuffle_test', action='store_true')
 parser.add_argument('--subset', type=int, default=None,
                     help='number of training data to use from the dataset')

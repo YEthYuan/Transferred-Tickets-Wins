@@ -350,7 +350,7 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
         should_save_ckpt = (epoch % save_its == 0) and (save_its > 0)
         should_log = (epoch % args.log_iters == 0)
 
-        if should_log or last_epoch or should_save_ckpt:
+        if not args.not_save and (should_log or last_epoch or should_save_ckpt):
             # log + get best
             ctx = ch.enable_grad() if disable_no_grad else ch.no_grad()
             with ctx:

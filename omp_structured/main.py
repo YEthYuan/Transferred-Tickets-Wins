@@ -336,7 +336,8 @@ def main_worker(args):
     #     name=args.name,
     # )
 
-    outp_str = args.conv_type + f" {args.prune_rate} best prec {best_acc1} \n"
+    outp_str = args.conv_type + (
+        " nat" if args.pytorch_pretrained else " adv") + f" {args.prune_rate} best prec {best_acc1} \n"
     print(outp_str)
     file_name = f"{args.set}_{args.arch}_{args.conv_type}_{'linear' if args.freeze_level == 4 else 'finetune'}.txt"
     f = open(file_name, "a+")
@@ -701,7 +702,6 @@ def check_module_sparsity(module, use_mask=True):
 
 
 def freeze_model(log, model, freeze_level):
-
     assert len([name for name, _ in list(model.named_parameters())
                 if f"layer{freeze_level}" in name]), "unknown freeze level (only {1,2,3,4} for ResNets)"
     update_params = []

@@ -11,6 +11,7 @@ import random
 import shutil
 import time
 import warnings
+import _thread
 import copy
 import math
 
@@ -44,8 +45,14 @@ parser = argparse.ArgumentParser(description='PyTorch Evaluation Tickets')
 ############################# required settings ################################
 parser.add_argument('--data', metavar='DIR', default='/scratch/yf22/datasets',
                     help='path to dataset')
+<<<<<<< HEAD
 parser.add_argument('--set', type=str, default='cifar10', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
+=======
+parser.add_argument('--set', type=str, default='cifar10',
+                    help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
+>>>>>>> 3cf93da392578a4ae32850fd0424111ecbb4991e
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
@@ -62,9 +69,9 @@ parser.add_argument('--lr', '--learning-rate', default=0.001, type=float,
 parser.add_argument('--decreasing_lr', default='50,100', help='decreasing strategy')
 parser.add_argument('--log_dir', default='runs', type=str)
 parser.add_argument('--name', default='debug_runs', type=str, help='experiment name')
-parser.add_argument('--weight_dir', type=str, default='/home/yuanye/RST/imp/tickets/R18_inf2/weight_init.pth.tar',
+parser.add_argument('--weight_dir', type=str, default='',
                     help='path of the pretrained weight')
-parser.add_argument('--mask_dir', type=str, default='/home/yuanye/RST/imp/tickets/R18_inf2/mask_state0_sp80.0.pth.tar',
+parser.add_argument('--mask_dir', type=str, default='',
                     help='path of the extracted mask')
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained natural weight.')
@@ -95,6 +102,14 @@ parser.add_argument('--seed', default=None, type=int,
                     help='seed for initializing training. ')
 parser.add_argument('--gpu', default=None, type=int,
                     help='GPU id to use.')
+
+############################# scp settings ################################
+parser.add_argument('--use_scp', action='store_true', help="scp the ckpts to target host", default=True)
+parser.add_argument('--remove_local_ckpt', action='store_true',
+                    help="remove the local checkpoints for disk space saving",
+                    default=False)
+parser.add_argument('--remote_dir', type=str, default='sw99@eic-2020gpu6.ece.rice.edu:/data1/sw99/remote_ckpt/imp',
+                    help='path to scp the model, make sure you have all keys set')
 
 
 def main():
@@ -303,6 +318,11 @@ def main_worker(gpu, args):
                 'optimizer': optimizer.state_dict(),
                 'scheduler': scheduler.state_dict()
             }, is_best=is_best, checkpoint=args.ckpt_base_dir)
+            if args.use_scp:
+                try:
+                    _thread.start_new_thread(scp_ckpt, (args, os.path.dirname(args.ckpt_base_dir), args.ckpt_base_dir, log))
+                except:
+                    log.info("Failed to launch scp thread")
 
         else:
             save_checkpoint({
@@ -323,6 +343,11 @@ def main_worker(gpu, args):
 
     check_sparsity(model.module, use_mask=False, conv1=False)
     log.info(all_result)
+
+    if args.use_scp and args.multi_thread:
+        while 1:
+            if args.multi_thread == False:
+                break
 
 
 def save_checkpoint(state, is_best, checkpoint, filename='checkpoint.pth.tar', best_name='model_best.pth.tar'):
@@ -382,6 +407,21 @@ def get_directories(args):
     (run_base_dir / "settings.txt").write_text(str(args))
 
     return run_base_dir, ckpt_base_dir, log_base_dir
+
+
+def scp_ckpt(args, path, ckpt_dir, log):
+    args.multi_thread = True
+    try:
+        os.system(f"scp -r {path} {args.remote_dir}")
+        log.info(f"Successfully copy the directory {os.path.split(path)[-1]} to {args.remote_dir}")
+        if args.remove_local_ckpt:
+            os.system(f"rm -rf {ckpt_dir}")
+            os.makedirs(ckpt_dir, exist_ok=True)
+            log.info(f"Successfully removed the local directory at {ckpt_dir}")
+        args.multi_thread = False
+    except:
+        log.critical(f"scp process failed!")
+        args.multi_thread = False
 
 
 def get_model_dataset(args):
@@ -487,7 +527,6 @@ def get_per_class_accuracy(args, loader):
 
 
 def freeze_model(log, model, freeze_level):
-
     assert len([name for name, _ in list(model.named_parameters())
                 if f"layer{freeze_level}" in name]), "unknown freeze level (only {1,2,3,4} for ResNets)"
     update_params = []

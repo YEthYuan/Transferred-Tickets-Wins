@@ -85,13 +85,13 @@ def make_loaders_pets(args, batch_size, workers):
 
 
 def make_loaders_birds(args, batch_size, workers):
-    ds = ImageNetTransfer(cs.BIRDS_PATH, num_classes=500, name='birds',
+    ds = ImageNetTransfer(os.path.join(args.data, 'birdsnap'), num_classes=500, name='birds',
                           mean=[0., 0., 0.], std=[1., 1., 1.])
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers)
 
 
 def make_loaders_SUN(args, batch_size, workers):
-    ds = ImageNetTransfer(args.data, num_classes=397, name='SUN397',
+    ds = ImageNetTransfer(os.path.join(args.data, 'SUN397', 'splits_01'), num_classes=397, name='SUN397',
                           mean=[0., 0., 0.], std=[1., 1., 1.])
     normalize = transforms.Normalize(mean=[0., 0., 0.], std=[1., 1., 1.])
 
@@ -102,7 +102,7 @@ def make_loaders_SUN(args, batch_size, workers):
         transforms.ToTensor(),
         normalize
     ])
-    train_path = os.path.join(args.data, 'train')
+    train_path = os.path.join(args.data, 'SUN397', 'splits_01', 'train')
     train_set = ImageFolder(train_path, transform=train_transform)
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=args.workers,
                               pin_memory=True)
@@ -114,9 +114,9 @@ def make_loaders_SUN(args, batch_size, workers):
         transforms.ToTensor(),
         normalize
     ])
-    test_path = os.path.join(args.data, 'val')
+    test_path = os.path.join(args.data, 'SUN397', 'splits_01', 'val')
     if not os.path.exists(test_path):
-        test_path = os.path.join(args.data, 'test')
+        test_path = os.path.join(args.data, 'SUN397', 'splits_01', 'test')
 
     test_set = ImageFolder(test_path, transform=test_transform)
     test_loader = DataLoader(test_set, batch_size=batch_size, shuffle=args.shuffle_test, num_workers=args.workers,
@@ -202,14 +202,14 @@ def make_loaders_oxford(args, batch_size, workers):
 
 
 def make_loaders_aircraft(args, batch_size, workers):
-    ds = ImageNetTransfer(cs.FGVC_PATH, num_classes=100, name='aircraft',
+    ds = ImageNetTransfer(os.path.join(args.data, 'fgvc-aircraft-2013b'), num_classes=100, name='aircraft',
                           mean=[0., 0., 0.], std=[1., 1., 1.])
     ds.custom_class = aircraft.FGVCAircraft
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers)
 
 
 def make_loaders_food(args, batch_size, workers):
-    food = food_101.FOOD101()
+    food = food_101.FOOD101(os.path.join(args.data, 'food-101'))
     train_ds, valid_ds, classes = food.get_dataset()
     train_dl, valid_dl = food.get_dls(train_ds, valid_ds, bs=batch_size,
                                       num_workers=workers)
@@ -265,7 +265,7 @@ def make_loaders_caltech101(args, batch_size, workers):
 
 
 def make_loaders_caltech256(args, batch_size, workers):
-    ds = Caltech256(cs.CALTECH256_PATH, download=True)
+    ds = Caltech256(args.data, download=True)
     np.random.seed(0)
     ch.manual_seed(0)
     ch.cuda.manual_seed(0)
@@ -319,7 +319,7 @@ def make_loaders_dtd(args, batch_size, workers):
 
 
 def make_loaders_cars(args, batch_size, workers):
-    ds = ImageNetTransfer(args.data, num_classes=196, name='stanford_cars',
+    ds = ImageNetTransfer(os.path.join(args.data, 'cars_new'), num_classes=196, name='stanford_cars',
                           mean=[0., 0., 0.], std=[1., 1., 1.])
     return ds, ds.make_loaders(batch_size=batch_size, workers=workers)
 
@@ -722,9 +722,9 @@ class Caltech101(VisionDataset):
         import scipy.io
 
         img = PIL.Image.open(os.path.join(self.root,
-                                      "101_ObjectCategories",
-                                      self.categories[self.y[index]],
-                                      "image_{:04d}.jpg".format(self.index[index]))).convert("RGB")
+                                          "101_ObjectCategories",
+                                          self.categories[self.y[index]],
+                                          "image_{:04d}.jpg".format(self.index[index]))).convert("RGB")
 
         target = []
         for t in self.target_type:
