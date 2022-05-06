@@ -339,6 +339,13 @@ def main_worker(gpu, args):
     check_sparsity(model.module, use_mask=False, conv1=False)
     log.info(all_result)
 
+    outp_str = f" {args.name} {all_result['best_acc1']} at {all_result['best_epoch']} \n"
+    print(outp_str)
+    file_name = "result.txt"
+    f = open(file_name, "a+")
+    f.write(outp_str)
+    f.close()
+
     if args.use_scp and args.multi_thread:
         while 1:
             if args.multi_thread == False:

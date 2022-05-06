@@ -37,7 +37,7 @@ model_names = sorted(name for name in models.__dict__
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
 ############################# required settings ################################
 parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data/CLS-LOC/',
-                     help='path to dataset') # AMD
+                    help='path to dataset')  # AMD
 # parser.add_argument('--data', metavar='DIR', default='/data1/ImageNet/ILSVRC/Data/CLS-LOC/',
 #                    help='path to dataset') # GPU7
 # parser.add_argument('--data', metavar='DIR', default='/data1/dataset/ILSVRC/Data/CLS-LOC/',
@@ -47,18 +47,21 @@ parser.add_argument('--data', metavar='DIR', default='/scratch/cl114/ILSVRC/Data
 # parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data/',
 #                     help='path to dataset') # Debug
 
-#parser.add_argument('--data', metavar='DIR', default='/home/sw99/datasets/',
+# parser.add_argument('--data', metavar='DIR', default='/home/sw99/datasets/',
 #                    help='path to dataset') # Caltech101
 
 parser.add_argument('--downstream', action='store_true')
 
-parser.add_argument('--set', type=str, default='ImageNet', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
+parser.add_argument('--set', type=str, default='ImageNet',
+                    help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet50)')
 parser.add_argument('--epochs', default=10, type=int, metavar='N',
+                    help='number of total epochs to run')
+parser.add_argument('--second_epochs', default=60, type=int, metavar='N',
                     help='number of total epochs to run')
 
 parser.add_argument('-b', '--batch-size', default=128, type=int,
@@ -67,9 +70,11 @@ parser.add_argument('-b', '--batch-size', default=128, type=int,
                          'batch size of all GPUs on the current node when '
                          'using Data Parallel or Distributed Data Parallel')
 
-parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float, metavar='LR', help='initial learning rate', dest='lr') # ImageNet Batch 256
-parser.add_argument('--decreasing_lr', default=None, help='decreasing strategy') # Imagenet upstream IMP
-parser.add_argument('--warmup', default=0, type=int, help='warm up epochs') # Imagenet upstream IMP
+parser.add_argument('--lr', '--learning-rate', default=2e-4, type=float, metavar='LR', help='initial learning rate',
+                    dest='lr')  # ImageNet Batch 256
+parser.add_argument('--decreasing_lr', default=None, help='decreasing strategy')  # Imagenet upstream IMP
+parser.add_argument('--second_decreasing_lr', default=None, help='decreasing strategy')  # Imagenet upstream IMP
+parser.add_argument('--warmup', default=0, type=int, help='warm up epochs')  # Imagenet upstream IMP
 parser.add_argument('--log_dir', default='runs', type=str)
 parser.add_argument('--name', default='R18_L2_Eps1', type=str, help='experiment name')
 parser.add_argument('--model-path', type=str, default='/home/yf22/ResNet_ckpt/resnet18_l2_eps1.ckpt',
@@ -93,7 +98,7 @@ parser.add_argument('--momentum', default=0.9, type=float, metavar='M',
                     help='momentum')
 parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     metavar='W', help='weight decay (default: 1e-4)',
-                    dest='weight_decay')                                      # Imagenet upstream IMP
+                    dest='weight_decay')  # Imagenet upstream IMP
 parser.add_argument('-p', '--print-freq', default=50, type=int,
                     metavar='N', help='print frequency (default: 10)')
 parser.add_argument('--resume', default='', type=str, metavar='PATH',
@@ -141,6 +146,7 @@ def main_worker(gpu, args):
         args.epochs = 182
         args.lr = 0.1
         args.decreasing_lr = '91, 136'
+        args.second_decreasing_lr = '37, 51'
         args.warmup = 1
         args.weight_decay = 2e-4
         args.attack_type = 'None'
@@ -240,7 +246,7 @@ def main_worker(gpu, args):
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
-    if args.decreasing_lr: # Only used in downstream small dataset IMP
+    if args.decreasing_lr:  # Only used in downstream small dataset IMP
         decreasing_lr = list(map(int, args.decreasing_lr.split(',')))
         scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=decreasing_lr, gamma=0.1)
     else:
@@ -323,7 +329,15 @@ def main_worker(gpu, args):
             natural_acc1_at_best_robustness = 0.0
             log.info("[INIT] Resume all records to zero")
 
-        for epoch in range(args.start_epoch, args.epochs):
+        if args.set != 'ImageNet' and prun_iter > 0:
+            total_epochs = args.second_epochs
+            args.decreasing_lr = args.second_decreasing_lr
+            decreasing_lr = list(map(int, args.decreasing_lr.split(',')))
+            scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=decreasing_lr, gamma=0.1)
+        else:
+            total_epochs = args.epochs
+
+        for epoch in range(args.start_epoch, total_epochs):
             log.info("-" * 150)
             print(optimizer.state_dict()['param_groups'][0]['lr'])
             log.info(
@@ -411,9 +425,9 @@ def main_worker(gpu, args):
         model.module.load_state_dict(ticket_init_weight)
 
         prune_model_custom(model.module, current_mask, conv1=False)
-        state_nat1, state_nat5 = validate(val_loader, model, criterion, args, writer, args.epochs)
+        state_nat1, state_nat5 = validate(val_loader, model, criterion, args, writer, total_epochs)
         if args.attack_type != 'None':
-            state_val1, state_val5 = validate_adv(val_loader, model, criterion, args, writer, args.epochs)
+            state_val1, state_val5 = validate_adv(val_loader, model, criterion, args, writer, total_epochs)
         else:
             state_val1, state_val5 = -1, -1
 

@@ -350,7 +350,7 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
         should_save_ckpt = (epoch % save_its == 0) and (save_its > 0)
         should_log = (epoch % args.log_iters == 0)
 
-        if not args.not_save and (should_log or last_epoch or should_save_ckpt):
+        if should_log or last_epoch or should_save_ckpt:
             # log + get best
             ctx = ch.enable_grad() if disable_no_grad else ch.no_grad()
             with ctx:
@@ -383,12 +383,13 @@ def train_model(args, model, loaders, mask, *, checkpoint=None, dp_device_ids=No
 
             # Log info into the logs table
             if store: store[consts.LOGS_TABLE].append_row(log_info)
-            # If we are at a saving epoch (or the last epoch), save a checkpoint
-            if should_save_ckpt or last_epoch: save_checkpoint(ckpt_at_epoch(epoch))
+            if not args.not_save:
+                # If we are at a saving epoch (or the last epoch), save a checkpoint
+                if should_save_ckpt or last_epoch: save_checkpoint(ckpt_at_epoch(epoch))
 
-            # Update the latest and best checkpoints (overrides old one)
-            save_checkpoint(consts.CKPT_NAME_LATEST)
-            if is_best: save_checkpoint(consts.CKPT_NAME_BEST)
+                # Update the latest and best checkpoints (overrides old one)
+                save_checkpoint(consts.CKPT_NAME_LATEST)
+                if is_best: save_checkpoint(consts.CKPT_NAME_BEST)
 
         if schedule: schedule.step()
         if has_attr(args, 'epoch_hook'): args.epoch_hook(model, log_info)
