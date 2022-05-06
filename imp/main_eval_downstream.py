@@ -43,18 +43,23 @@ model_names = sorted(name for name in models.__dict__
 
 parser = argparse.ArgumentParser(description='PyTorch Evaluation Tickets')
 ############################# required settings ################################
-parser.add_argument('--data', metavar='DIR', default='/home/yuanye/data',
+parser.add_argument('--data', metavar='DIR', default='/scratch/yf22/datasets',
                     help='path to dataset')
+<<<<<<< HEAD
+parser.add_argument('--set', type=str, default='cifar10', help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
+parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
+=======
 parser.add_argument('--set', type=str, default='cifar10',
                     help='ImageNet, cifar10, cifar100, svhn, caltech101, dtd, flowers, pets, sun')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet18',
+>>>>>>> 3cf93da392578a4ae32850fd0424111ecbb4991e
                     choices=model_names,
                     help='model architecture: ' +
                          ' | '.join(model_names) +
                          ' (default: resnet50)')
 parser.add_argument('--epochs', default=150, type=int, metavar='N',
                     help='number of total epochs to run')
-parser.add_argument('-b', '--batch-size', default=64, type=int,
+parser.add_argument('-b', '--batch-size', default=256, type=int,
                     metavar='N',
                     help='mini-batch size (default: 256), this is the total '
                          'batch size of all GPUs on the current node when '
@@ -353,6 +358,8 @@ def main_worker(gpu, args):
 
 
 def save_checkpoint(state, is_best, checkpoint, filename='checkpoint.pth.tar', best_name='model_best.pth.tar'):
+    return None
+    '''
     filepath = os.path.join(checkpoint, filename)
     torch.save(state, filepath)
 
@@ -362,7 +369,7 @@ def save_checkpoint(state, is_best, checkpoint, filename='checkpoint.pth.tar', b
         return bestpath
 
     return filepath
-
+    '''
 
 def get_trainer(args):
     print(f"=> Using trainer from trainers.{args.trainer}")
