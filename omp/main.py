@@ -39,7 +39,7 @@ parser.add_argument('--out-dir', type=str, default='runs')
 parser.add_argument('--exp-name', type=str, default='RS-debug-run')
 parser.add_argument('--arch', type=str, default='resnet50')
 parser.add_argument('--model-path', type=str,
-                    default='/home/yuanye/RST/omp/RS_model/imagenet/resnet50/noise_0.25/checkpoint.pth.tar')
+                    default='/home/yuanye/RST/omp/RS_model/imagenet/resnet50/noise_0.50/checkpoint.pth.tar')
 # parser.add_argument('--model-path', type=str, default=None)
 parser.add_argument('--mask-save-dir', type=str, default=None)
 parser.add_argument('--epochs', type=int, default=20)
@@ -61,7 +61,7 @@ parser.add_argument('--resume', action='store_true',
                     help='Whether to resume or not (Overrides the one in robustness.defaults)')
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
-parser.add_argument('--rs-pretrained', action='store_true', default=True,
+parser.add_argument('--rs-pretrained', action='store_true',
                     help='If True, loads a Random Smoothing pretrained model.')
 parser.add_argument('--only-extract-mask', action='store_true',
                     help='If True, only extract the ticket from Imagenet pretrained model')
