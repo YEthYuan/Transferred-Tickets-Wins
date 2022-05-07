@@ -32,13 +32,14 @@ parser.add_argument('--eps', type=str, help='adversarial perturbation budget', d
 parser.add_argument('--attack-lr', type=str, help='step size for PGD', default='10')
 
 # Custom arguments
-parser.add_argument('--dataset', type=str, default='caltech101',
+parser.add_argument('--dataset', type=str, default='cifar10',
                     help='Dataset (Overrides the one in robustness.defaults)')
-parser.add_argument('--data', type=str, default='/home/yf22/datasets')
+parser.add_argument('--data', type=str, default='/home/yuanye/data')
 parser.add_argument('--out-dir', type=str, default='runs')
-parser.add_argument('--exp-name', type=str, default='test-debug-run')
-parser.add_argument('--arch', type=str, default='resnet18')
-parser.add_argument('--model-path', type=str, default='pretrained_models/resnet18_l2_eps3.ckpt')
+parser.add_argument('--exp-name', type=str, default='RS-debug-run')
+parser.add_argument('--arch', type=str, default='resnet50')
+parser.add_argument('--model-path', type=str,
+                    default='/home/yuanye/RST/omp/RS_model/imagenet/resnet50/noise_0.25/checkpoint.pth.tar')
 # parser.add_argument('--model-path', type=str, default=None)
 parser.add_argument('--mask-save-dir', type=str, default=None)
 parser.add_argument('--epochs', type=int, default=20)
@@ -60,6 +61,8 @@ parser.add_argument('--resume', action='store_true',
                     help='Whether to resume or not (Overrides the one in robustness.defaults)')
 parser.add_argument('--pytorch-pretrained', action='store_true',
                     help='If True, loads a Pytorch pretrained model.')
+parser.add_argument('--rs-pretrained', action='store_true', default=True,
+                    help='If True, loads a Random Smoothing pretrained model.')
 parser.add_argument('--only-extract-mask', action='store_true',
                     help='If True, only extract the ticket from Imagenet pretrained model')
 parser.add_argument('--cifar10-cifar10', action='store_true',
@@ -249,7 +252,9 @@ def get_dataset_and_loaders(args):
             only_val=args.eval_only, batch_size=args.batch_size, workers=args.workers)
     else:
         ds, (train_loader, validation_loader) = transfer_datasets.make_loaders(args=args,
-            ds=args.dataset, batch_size=args.batch_size, workers=args.workers, subset=args.subset)
+                                                                               ds=args.dataset,
+                                                                               batch_size=args.batch_size,
+                                                                               workers=args.workers, subset=args.subset)
         if type(ds) == int:
             new_ds = datasets.CIFAR("/tmp")
             new_ds.num_classes = ds
@@ -295,13 +300,15 @@ def get_model(args, ds):
             model, _ = model_utils.make_and_restore_model(
                 arch=pytorch_models[args.arch](
                     args.pytorch_pretrained) if args.arch in pytorch_models.keys() else args.arch,
-                dataset=datasets.ImageNet(''), resume_path=args.model_path, pytorch_pretrained=args.pytorch_pretrained,
+                dataset=datasets.ImageNet(''), resume_path=args.model_path, rs_pretrained=args.rs_pretrained,
+                pytorch_pretrained=args.pytorch_pretrained,
                 add_custom_forward=args.arch in pytorch_models.keys())
             checkpoint = None
         else:
             model, _ = model_utils.make_and_restore_model(arch=args.arch, dataset=ds,
                                                           resume_path=args.model_path,
-                                                          pytorch_pretrained=args.pytorch_pretrained)
+                                                          pytorch_pretrained=args.pytorch_pretrained,
+                                                          rs_pretrained=args.rs_pretrained)
             checkpoint = None
 
         if not args.no_replace_last_layer and not args.eval_only:

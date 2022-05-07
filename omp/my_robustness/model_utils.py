@@ -51,7 +51,7 @@ class DummyModel(nn.Module):
         return self.model(x)
 
 def make_and_restore_model(*_, arch, dataset, resume_path=None,
-         parallel=False, pytorch_pretrained=False, add_custom_forward=False):
+         parallel=False, pytorch_pretrained=False, add_custom_forward=False, rs_pretrained=False):
     """
     Makes a model and (optionally) restores it from a checkpoint.
 
@@ -98,8 +98,12 @@ def make_and_restore_model(*_, arch, dataset, resume_path=None,
             state_dict_path = 'state_dict'
 
         sd = checkpoint[state_dict_path]
-        sd = {k[len('module.'):]:v for k,v in sd.items()}
-        model.load_state_dict(sd)
+        if rs_pretrained:
+            sd = {'model.'+k[len('1.module.'):]: v for k, v in sd.items()}
+            model.load_state_dict(sd, strict=False)
+        else:
+            sd = {k[len('module.'):]:v for k,v in sd.items()}
+            model.load_state_dict(sd)
         print("=> loaded checkpoint '{}' (epoch {})".format(resume_path, checkpoint['epoch']))
     elif resume_path:
         error_msg = "=> no checkpoint found at '{}'".format(resume_path)
