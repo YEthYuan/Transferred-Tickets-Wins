@@ -126,6 +126,12 @@ def main_worker(args):
     elif args.pretrained:
         pretrained(args, model)
 
+    # init mask
+    for n, m in model.named_modules():
+        if isinstance(m, SubnetConv):
+            m.init_score_with_weight_mag_with_scale()
+            args.log.info(f"Init model {n} mask with weight. ")
+
     if args.classes != 1000:
         change_fc_layer(args, model)
 
@@ -487,10 +493,7 @@ def pretrained(args, model):
         print("=> no pretrained weights found at '{}'".format(args.pretrained))
         exit()
 
-    for n, m in model.named_modules():
-        if isinstance(m, SubnetConv):
-            m.init_score_with_weight_mag_with_scale()
-            args.log.info(f"Init model {n} mask with weight. ")
+
 
 
 # def get_dataset(args):
