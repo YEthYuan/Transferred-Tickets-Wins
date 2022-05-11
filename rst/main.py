@@ -19,7 +19,7 @@ import torch.utils.data.distributed
 from tqdm import tqdm
 
 from utils import builder
-from utils.conv_type import FixedSubnetConv, SampleSubnetConv
+from utils.conv_type import FixedSubnetConv, SampleSubnetConv, SubnetConv
 from utils.logging import AverageMeter, ProgressMeter
 from utils.net_utils import (
     set_model_prune_rate,
@@ -488,8 +488,9 @@ def pretrained(args, model):
         exit()
 
     for n, m in model.named_modules():
-        if isinstance(m, FixedSubnetConv):
-            m.set_subnet()
+        if isinstance(m, SubnetConv):
+            m.init_score_with_weight_mag_with_scale()
+            args.log.info(f"Init model {n} mask with weight. ")
 
 
 # def get_dataset(args):

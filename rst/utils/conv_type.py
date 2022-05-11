@@ -51,6 +51,11 @@ class SubnetConv(nn.Conv2d):
         self.weight.data = self.weight.data * GetSubnet.apply(self.clamped_scores, prune_rate).data
         self.use_subset = True
 
+    def init_score_with_weight_mag_with_scale(self):
+        # print('weight mean:', self.weight.data.mean())
+
+        self.scores.data = self.weight.data
+
     @property
     def clamped_scores(self):
         return self.scores.abs()
